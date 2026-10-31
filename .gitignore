@@ -125,3 +125,6 @@ chroma_db/
 !milestone1_deliverables/**
 !milestone2_deliverables/**
 !Milestone2_Updated_Documents/**
+
+# Ignore LICENSE file
+LICENSE
