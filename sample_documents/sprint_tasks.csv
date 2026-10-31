@@ -1,7 +1,0 @@
-TaskID,TaskName,Assignee,Status,DueDate,Dependencies
-TASK-201,Implement Single File Upload Restriction,Manish,Completed,2026-10-27,None
-TASK-202,Build Scope Extraction Agent,Manish,Completed,2026-10-28,TASK-201
-TASK-203,Build Risk Detection Agent,Team,In Progress,2026-10-20,TASK-202
-TASK-204,Build Blocker Agent,Team,In Progress,2026-10-22,TASK-202
-TASK-205,Vendor API Integration,TBD,Blocked,2026-10-18,TASK-203
-TASK-206,Health Scoring Formula,Unassigned,Planned,2026-11-10,TASK-204
