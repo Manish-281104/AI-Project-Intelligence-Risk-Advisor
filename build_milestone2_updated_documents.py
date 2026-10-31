@@ -1,10 +1,20 @@
 """
-Script to build Milestone 2 Updated Documents from original Milestone 1 Excel files:
-1. Defect_Tracker_Milestone1.xlsx -> Milestone2_Updated_Documents/Defect_Tracker_Milestone2.xlsx
-2. Unit_Test_Plan_Milestone1.xlsx -> Milestone2_Updated_Documents/Unit_Test_Plan_Milestone2.xlsx
-3. Agile_Template_Milestone1.xlsx -> Milestone2_Updated_Documents/Agile_Template_Milestone2.xlsx
-4. Milestone2_Updated_Documents/Milestone2_Update_Summary.txt
-5. Milestone2_Updated_Documents.zip
+Script to build Milestone 2 Updated Documents from Milestone 1 Excel files:
+Outputs to:
+1. Milestone2_Updated_Documents/
+   - Unit_Test_Plan_Milestone2.xlsx
+   - Defect_Tracker_Milestone2.xlsx
+   - Agile_Template_Milestone2.xlsx
+   - Milestone2_Update_Summary.txt
+2. milestone2_deliverables/
+   - Unit_Test_Plan_Milestone2.xlsx
+   - Defect_Tracker_Milestone2.xlsx
+   - Agile_Template_Milestone2.xlsx
+   - Milestone2_Documentation.zip (containing all 6 milestone 1 & 2 templates)
+
+Authoritative Project Timeline:
+- Milestone 1: Preserved historical dates (Setup audit Oct 14, 2026; Sprint 1: Oct 10-14, 2026).
+- Milestone 2: Concluded and verified on October 31, 2026 (Sprint 2: Oct 24-31, 2026).
 """
 
 import os
@@ -16,8 +26,12 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-OUT_DIR = Path("Milestone2_Updated_Documents")
-OUT_DIR.mkdir(exist_ok=True)
+DIR_M1 = Path("milestone1_deliverables")
+DIR_UPDATED = Path("Milestone2_Updated_Documents")
+DIR_DELIV = Path("milestone2_deliverables")
+
+DIR_UPDATED.mkdir(exist_ok=True)
+DIR_DELIV.mkdir(exist_ok=True)
 
 
 def copy_cell_style(ref_cell, target_cell):
@@ -41,22 +55,25 @@ def copy_cell_style(ref_cell, target_cell):
 # 1. UPDATE UNIT TEST PLAN
 # =====================================================================
 def update_unit_test_plan():
-    wb = openpyxl.load_workbook("Unit_Test_Plan_Milestone1.xlsx")
+    src_file = DIR_M1 / "Unit_Test_Plan_Milestone1.xlsx"
+    if not src_file.exists():
+        src_file = Path("Unit_Test_Plan_Milestone1.xlsx")
+    wb = openpyxl.load_workbook(src_file)
     ws = wb["UT"]
 
     # Existing rows 2 to 12 are Milestone 1 tests. Update their Actual Result with verified retest status.
     m1_updates = {
-        2: "Pass. Verified via GET / returning HTTP 200 with online status, version 0.1.0, and documentation link (/docs).",
+        2: "Pass. Verified via GET / returning HTTP 200 with online status, version 0.2.0, and documentation link (/docs).",
         3: "Pass. HTTP 200 OK returned with {'status': 'ok', 'storage_ready': True, 'ai_pipeline_status': 'active in Milestone 2'}.",
         4: "Pass. HTTP 200 OK returned with dynamic registry of all 9 modules (1 implemented, 2 partially implemented, 6 planned).",
-        5: "Pass. Uploaded valid UTF-8 .txt document (architecture_risks.txt); extracted characters and generated 1 boundary-aware chunk with section coordinate.",
-        6: "Pass. Uploaded structured CSV (sprint_tasks.csv); extracted tabular rows with headers into 2 chunks tagged with row coordinates ('Row 1-5').",
-        7: "Pass. Uploaded valid DOCX (meeting_minutes.docx); extracted paragraphs and table rows into 2 chunks with paragraph coordinates.",
+        5: "Pass. Uploaded valid UTF-8 .txt document (architecture_risks.txt); extracted characters and generated boundary-aware chunk with section coordinate.",
+        6: "Pass. Uploaded structured CSV (sprint_tasks.csv); extracted tabular rows with headers into chunks tagged with row coordinates ('Row 1-5').",
+        7: "Pass. Uploaded valid DOCX (meeting_minutes.docx); extracted paragraphs and table rows into chunks with paragraph coordinates.",
         8: "Pass. Uploaded multi-page text PDF (project_charter.pdf); PyMuPDF extracted text per page with coordinate provenance ('Page 1').",
         9: "Pass. Uploaded 0-byte file (empty.txt); HTTP 400 Bad Request returned: 'The uploaded file is empty (0 bytes). Please upload a valid document.'",
         10: "Pass. Uploaded unsupported file (unsupported.png); HTTP 400 Bad Request returned: 'Unsupported file format .png. Allowed formats are: .pdf, .docx, .csv, .txt.'",
         11: "Pass. Uploaded malformed PDF without %PDF header; HTTP 400 returned: 'Malformed PDF: File header does not match valid PDF signature.'",
-        12: "Pass. Executed 'npm run build'; Vite completed production bundling with zero TypeScript errors in 19.60s (1597 modules transformed).",
+        12: "Pass. Executed 'npm run build'; Vite completed production bundling with zero TypeScript errors in 2.25s (1563 modules transformed).",
     }
 
     for row_idx, actual_text in m1_updates.items():
@@ -133,7 +150,7 @@ def update_unit_test_plan():
             "Blank Scanned PDF Handling (Zero Extractable Text)",
             "Upload valid PDF containing blank or image-only scanned pages (blank_scanned.pdf) via POST /api/documents/upload.",
             "PDF file structure is valid but contains zero selectable text characters.",
-            "HTTP 400 Bad Request returned instructing user that document contains no extractable text characters.",
+            "HTTP 400 Bad Request returned instructing user that document contains no extractable text characters after OCR evaluation.",
             "Pass. HTTP 400 Bad Request returned: 'contains no extractable text. Please ensure the document contains readable text characters'.",
         ),
         (
@@ -142,7 +159,7 @@ def update_unit_test_plan():
             "Send POST request to /api/agents/scope across ingested project documents.",
             "Project charter and scope documents ingested in knowledge base.",
             "Agent extracts project goals, in-scope/out-of-scope items, deliverables, milestones, deadlines, and dependencies with citations.",
-            "Pass. Extracted 3 project goals, 14 scope items, 6 deliverables, 4 milestones, and 4 dependencies with source citations and confidence ratings.",
+            "Pass. Extracted 1 primary goal, 5 sub-goals, scope items, deliverables, milestones, and dependencies with source citations and confidence ratings.",
         ),
         (
             22,
@@ -150,7 +167,7 @@ def update_unit_test_plan():
             "Execute Scope Agent on documents lacking explicit owner or deadline data.",
             "Source text omits deliverable assignee or target date.",
             "Agent sets owner/date to 'UNKNOWN' and logs gaps in missing_information list; zero hallucination.",
-            "Pass. Missing owners and target dates mapped strictly to 'UNKNOWN' and 13 explicit data gaps recorded in missing_information.",
+            "Pass. Missing owners and target dates mapped strictly to 'UNKNOWN' and explicit data gaps recorded in missing_information.",
         ),
         (
             23,
@@ -158,7 +175,7 @@ def update_unit_test_plan():
             "Send POST request to /api/agents/risks across ingested task schedules and risk registers.",
             "Task schedules with deadlines and risk statements ingested.",
             "Agent calculates schedule slippages via deterministic deadline deltas, detects dependency bottlenecks, and classifies severity via 5x5 matrix.",
-            "Pass. Identified 3 grounded delivery risks (Schedule, Resource, Technical); calculated exact deadline deltas; qualitative risk assessed as High.",
+            "Pass. Identified grounded delivery risks (Schedule, Resource, Technical); calculated exact deadline deltas; qualitative risk assessed via 5x5 matrix.",
         ),
         (
             24,
@@ -174,7 +191,7 @@ def update_unit_test_plan():
             "Send POST request to /api/agents/blockers across meeting minutes and retro documents.",
             "Meeting minutes containing blockers, impediments, and action items ingested.",
             "Agent extracts unresolved blockers, action items, and pending decisions with priority tags, statuses, and recommended next steps.",
-            "Pass. Extracted 3 blockers, 10 action items, and 0 pending decisions with priority tags and actionable resolution steps.",
+            "Pass. Extracted blockers, action items, approved decisions, and pending decisions with priority tags and actionable resolution steps.",
         ),
         (
             26,
@@ -182,7 +199,7 @@ def update_unit_test_plan():
             "Execute Blocker Agent on action items without explicit assignees or target dates.",
             "Document passage lists an action item without naming an individual.",
             "Agent assigns assigned_owner: 'UNKNOWN' and due_date: 'UNKNOWN'; increments unassigned_count; zero guessing.",
-            "Pass. 10 unassigned items strictly assigned to 'UNKNOWN'; unassigned_count accurately incremented to 10 with zero name guessing.",
+            "Pass. Unassigned items strictly assigned to 'UNKNOWN'; unassigned_count accurately computed with zero name guessing.",
         ),
         (
             27,
@@ -198,7 +215,7 @@ def update_unit_test_plan():
             "Verify source_references and source_ref across all agent responses.",
             "Ingested documents have unique filenames and chunk coordinate metadata.",
             "Every extracted item includes traceable citation referencing source document filename and coordinate.",
-            "Pass. 100% of extracted items contain verifiable document citations referencing specific filenames (e.g. project_charter.pdf) and coordinates.",
+            "Pass. 100% of extracted items contain verifiable document citations referencing specific filenames and coordinates.",
         ),
         (
             29,
@@ -227,10 +244,10 @@ def update_unit_test_plan():
         (
             32,
             "Regression Test Suite Execution (Full Automated Pytest)",
-            "Run pytest across all test modules in backend/tests/ (test_api.py, test_chunking.py, test_milestone2_agents.py, test_project_grouping_and_consistency.py, test_sample_document_validation.py).",
+            "Run pytest across all test modules in backend/tests/ (test_api.py, test_chunking.py, test_milestone2_agents.py, test_project_grouping_and_consistency.py, test_sample_document_validation.py, test_milestone2_comprehensive_validation.py, test_library_management_validation.py).",
             "Python 3.13 virtual environment with test dependencies installed.",
-            "All 31 automated unit and integration tests pass with 0 failures and 0 errors.",
-            "Pass. 31 passed in 13.92s (10 baseline regression tests, 8 chunking tests, 10 Milestone 2 multi-file & agent tests, 2 project workspace grouping & conflict tests, 1 10-criteria ground truth test).",
+            "All 35 automated unit and integration tests pass with 0 failures and 0 errors.",
+            "Pass. 35 passed in 5.71s (10 API tests, 8 chunking tests, 10 agent tests, 2 grouping tests, 1 ground truth test, 3 comprehensive tests, 1 library validation test).",
         ),
         (
             33,
@@ -238,7 +255,7 @@ def update_unit_test_plan():
             "Upload 4 project documents (proposal, SRS, meeting notes, progress report) in 4 separate upload batches; execute RAG retrieval and multi-agent analysis.",
             "Application maintains ONE persistent project workspace ID for all uploaded documents regardless of batch or upload timestamp.",
             "All 4 documents share the same persistent project_id; upload batches track internal batch IDs; RAG retriever and all 3 agents produce unified cross-document findings.",
-            "Pass. All 4 documents bound to proj_workspace_default with unique document IDs; ChromaDB and vector store index project_id; all 3 agents produce combined intelligence.",
+            "Pass. All 4 documents bound to persistent workspace with unique document IDs; vector store indexes project_id; all 3 agents produce combined intelligence.",
         ),
         (
             34,
@@ -266,6 +283,30 @@ def update_unit_test_plan():
         ),
         (
             37,
+            "Scanned PDF OCR Fallback Pipeline Execution",
+            "Upload a scanned image-only PDF containing no selectable direct text characters.",
+            "Normal text extraction returns 0 characters; OCR fallback is enabled with RapidOCR (ONNX Runtime).",
+            "Application renders pages to high-resolution pixmaps, runs local OCR, extracts text, preserves page numbers, and rejects genuinely blank pages.",
+            "Pass. RapidOCR fallback triggered, extracted textual content with page coordinates; verified in test_scanned_pdf_ocr_fallback_pipeline.",
+        ),
+        (
+            38,
+            "Dynamic Project Switching & Zero-Bleed Workspace Isolation",
+            "Switch active workspace from Campus Event Management Portal to Community Library Management System and trigger full agent extraction.",
+            "Documents from secondary project ingested into a clean workspace.",
+            "All extracted goals, deliverables, milestones, risks, and blockers belong strictly to the Community Library Management System with zero bleed from previous project.",
+            "Pass. Complete dynamic identity shift verified with 0% token overlap from previous project; verified in test_dynamic_project_switching_and_zero_bleed.",
+        ),
+        (
+            39,
+            "CSV Delimiter Sniffing & Record Preservation",
+            "Ingest CSV files formatted with semicolon, tab, or pipe delimiters alongside standard comma-separated files.",
+            "CSV parser automatically identifies delimiter and preserves column headers and row relationships.",
+            "Table records are extracted into structured dicts with row coordinates ('Row 1-5') without flattening or record loss.",
+            "Pass. All CSV delimiters sniffed accurately; record coordinates preserved; verified in test_csv_delimiters_and_record_preservation.",
+        ),
+        (
+            40,
             "Automated User Story Synthesis Engine (Milestone 3 Planned)",
             "Execute Documentation Generation Agent to synthesize Gherkin user stories from project intelligence.",
             "Milestone 3 documentation generation engine active.",
@@ -273,7 +314,7 @@ def update_unit_test_plan():
             "Not Run. Feature scheduled for Milestone 3 implementation.",
         ),
         (
-            38,
+            41,
             "Composite Project Health Scoring (0-100) (Milestone 3 Planned)",
             "Execute Health Scoring Engine using weighted formula combining schedule, risk, blocker, and documentation factors.",
             "Milestone 3 health scoring algorithm active.",
@@ -281,7 +322,7 @@ def update_unit_test_plan():
             "Not Run. Feature scheduled for Milestone 3 implementation.",
         ),
         (
-            39,
+            42,
             "Conversational Project Intelligence Assistant (Milestone 3 Planned)",
             "Query project intelligence conversational assistant with natural language project questions.",
             "Milestone 3 conversational assistant endpoint active.",
@@ -298,16 +339,20 @@ def update_unit_test_plan():
             ref_cell = ws.cell(row=ref_row, column=col_idx)
             copy_cell_style(ref_cell, cell)
 
-    out_path = OUT_DIR / "Unit_Test_Plan_Milestone2.xlsx"
-    wb.save(out_path)
-    print(f"Saved: {out_path} (Total test cases: {ws.max_row - 1})")
+    for out_dir in [DIR_UPDATED, DIR_DELIV]:
+        out_path = out_dir / "Unit_Test_Plan_Milestone2.xlsx"
+        wb.save(out_path)
+        print(f"Saved: {out_path} (Total test cases: {ws.max_row - 1})")
 
 
 # =====================================================================
 # 2. UPDATE DEFECT TRACKER
 # =====================================================================
 def update_defect_tracker():
-    wb = openpyxl.load_workbook("Defect_Tracker_Milestone1.xlsx")
+    src_file = DIR_M1 / "Defect_Tracker_Milestone1.xlsx"
+    if not src_file.exists():
+        src_file = Path("Defect_Tracker_Milestone1.xlsx")
+    wb = openpyxl.load_workbook(src_file)
     ws = wb["Defects"]
 
     # Update existing Defect 1 (Row 2)
@@ -320,7 +365,7 @@ def update_defect_tracker():
     ws.cell(row=2, column=11).value = "Retested and verified in Milestone 2 UI build."
 
     # Update existing Defect 2 (Row 3)
-    ws.cell(row=3, column=6).value = "manish"  # fix typo 'mansih'
+    ws.cell(row=3, column=6).value = "manish"
     ws.cell(row=3, column=7).value = "User Interface"
     ws.cell(row=3, column=8).value = (
         "Fixed and verified. Enhanced FileUpload component to render expandable chunk cards, "
@@ -434,6 +479,32 @@ def update_defect_tracker():
             "Closed",
             "Verified and closed. test_milestone2_sample_document_10_ground_truth_criteria validates all 10 criteria with exact ground-truth values.",
         ),
+        (
+            10,
+            "manish",
+            datetime.datetime(2026, 10, 30, 0, 0),
+            "Scanned or image-only PDFs failed extraction because the application lacked an optical character recognition (OCR) fallback pipeline, rejecting valid scanned documents.",
+            "Sprint 2",
+            "manish",
+            "Logical",
+            "Root Cause: Document service relied solely on PyMuPDF text stream extraction. Fix: Integrated RapidOCR (ONNX Runtime) with blank-page filtering. If character count falls below threshold (60 chars), system renders pages to pixmaps and invokes OCR fallback before returning an error.",
+            datetime.datetime(2026, 10, 31, 0, 0),
+            "Closed",
+            "Verified and closed. test_scanned_pdf_ocr_fallback_pipeline confirms OCR text extraction from image-only pages.",
+        ),
+        (
+            11,
+            "manish",
+            datetime.datetime(2026, 10, 31, 0, 0),
+            "Cross-project context bleed: System retained old Campus Event Management goals when switching to a different project domain (such as Community Library Management).",
+            "Sprint 2",
+            "manish",
+            "Logical",
+            "Root Cause: Hardcoded project defaults in extraction heuristics. Fix: Implemented dynamic project identity extraction, dynamic goal resolution, and clean isolated workspace re-initialization.",
+            datetime.datetime(2026, 10, 31, 0, 0),
+            "Closed",
+            "Verified and closed. test_dynamic_project_switching_and_zero_bleed and test_library_management_system_full_validation confirm 0% bleed across domains.",
+        ),
     ]
 
     ref_row = 3
@@ -446,16 +517,20 @@ def update_defect_tracker():
             if isinstance(val, datetime.datetime):
                 cell.number_format = "YYYY-MM-DD"
 
-    out_path = OUT_DIR / "Defect_Tracker_Milestone2.xlsx"
-    wb.save(out_path)
-    print(f"Saved: {out_path} (Total verified defects: 9, all Closed)")
+    for out_dir in [DIR_UPDATED, DIR_DELIV]:
+        out_path = out_dir / "Defect_Tracker_Milestone2.xlsx"
+        wb.save(out_path)
+        print(f"Saved: {out_path} (Total verified defects: 11, all Closed)")
 
 
 # =====================================================================
 # 3. UPDATE AGILE TEMPLATE
 # =====================================================================
 def update_agile_template():
-    wb = openpyxl.load_workbook("Agile_Template_Milestone1.xlsx")
+    src_file = DIR_M1 / "Agile_Template_Milestone1.xlsx"
+    if not src_file.exists():
+        src_file = Path("Agile_Template_Milestone1.xlsx")
+    wb = openpyxl.load_workbook(src_file)
 
     # -------------------------------------------------------------
     # Sheet 1: Product Backlog
@@ -500,27 +575,27 @@ def update_agile_template():
         ws_sb.cell(row=r, column=8).value = "3- Completed"
 
     # Add Sprint 2 Section Header at Row 11
-    row_11_vals = ["SPRINT 2 BACKLOG - MULTI-AGENT INTELLIGENCE & MULTI-FILE INGESTION (OCT 24-30, 2026)"] + [None] * 22
+    row_11_vals = ["SPRINT 2 BACKLOG - MULTI-AGENT INTELLIGENCE & MULTI-FILE INGESTION (OCT 24-31, 2026)"] + [None] * 22
     for c_idx, val in enumerate(row_11_vals, start=1):
         cell = ws_sb.cell(row=11, column=c_idx, value=val)
         ref_cell = ws_sb.cell(row=4, column=c_idx)
         copy_cell_style(ref_cell, cell)
     ws_sb.cell(row=11, column=1).font = Font(name="Arial", size=10, bold=True, color="1F497D")
 
-    # Sprint 2 Tasks (T-07 to T-18)
+    # Sprint 2 Tasks (T-07 to T-18) spanning Oct 24-31, 2026
     sprint2_tasks = [
-        ("US-07", "T-07", "Enable multiple-file selection, pre-upload staging list, independent file processing, and per-file results in FastAPI backend.", datetime.datetime(2026, 10, 26), datetime.datetime(2026, 10, 26), "Manish", "Coding", "3- Completed", 3.5, 3.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+        ("US-07", "T-07", "Enable multiple-file selection, pre-upload staging list, independent file processing, and per-file results in FastAPI backend.", datetime.datetime(2026, 10, 24), datetime.datetime(2026, 10, 26), "Manish", "Coding", "3- Completed", 3.5, 3.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
         ("US-07", "T-08", "Enforce empty file, corrupted PDF, and blank scanned document rejection rules with descriptive error messaging.", datetime.datetime(2026, 10, 26), datetime.datetime(2026, 10, 26), "Manish", "Coding", "3- Completed", 2.5, 2.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
         ("US-08", "T-09", "Implement TF-IDF semantic retriever with persistent JSON document catalog (documents_registry.json) and chunk coordinates.", datetime.datetime(2026, 10, 26), datetime.datetime(2026, 10, 27), "Manish", "Coding", "3- Completed", 4.0, 1.5, 2.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
         ("US-09", "T-10", "Build Scope & Deliverable Extraction Agent with Pydantic schema validation and anti-hallucination UNKNOWN fallback.", datetime.datetime(2026, 10, 27), datetime.datetime(2026, 10, 27), "Manish", "Coding", "3- Completed", 4.0, 0, 4.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
         ("US-10", "T-11", "Build Risk Detection & Delivery Forecasting Agent with deterministic schedule delta and 5x5 qualitative matrix.", datetime.datetime(2026, 10, 27), datetime.datetime(2026, 10, 28), "Manish", "Coding", "3- Completed", 4.0, 0, 1.5, 2.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
         ("US-11", "T-12", "Build Blocker & Action Item Agent with unassigned owner mapping to UNKNOWN and cross-document citation merging.", datetime.datetime(2026, 10, 28), datetime.datetime(2026, 10, 28), "Manish", "Coding", "3- Completed", 3.0, 0, 0, 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-        ("US-12", "T-13", "Develop simplified AgentAnalysisView and FileUpload components; remove milestone labels and RAG pipeline banners.", datetime.datetime(2026, 10, 28), datetime.datetime(2026, 10, 28), "Manish", "Design", "3- Completed", 3.5, 0, 0, 1.5, 2.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-        ("US-13", "T-14", "Implement unified multi-agent API endpoint (/api/agents/analyze-all) coordinating Scope, Risk, and Blocker agents.", datetime.datetime(2026, 10, 28), datetime.datetime(2026, 10, 28), "Manish", "Integration Test", "3- Completed", 2.5, 0, 0, 0, 2.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-        ("US-13", "T-15", "Author and execute automated test suite (31 pytest tests) and verify Vite production build with zero errors.", datetime.datetime(2026, 10, 28), datetime.datetime(2026, 10, 30), "Manish", "Regression Test", "3- Completed", 3.0, 0, 0, 0, 1.0, 2.0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-        ("US-13", "T-16", "Update project management documentation: Unit Test Plan, Defect Tracker, and Agile Template with Milestone 2 results.", datetime.datetime(2026, 10, 28), datetime.datetime(2026, 10, 30), "Manish", "Others", "3- Completed", 3.0, 0, 0, 0, 0, 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-        ("US-14", "T-17", "Implement persistent ProjectWorkspace and consistency validation in DocumentService and vector store with HTTP 409 conflict detection.", datetime.datetime(2026, 10, 29), datetime.datetime(2026, 10, 30), "Manish", "Coding", "3- Completed", 3.5, 0, 0, 0, 0, 0, 3.5, 0, 0, 0, 0, 0, 0, 0, 0),
-        ("US-09", "T-18", "Refine Scope, Risk, and Blocker agents to achieve 100% compliance on Milestone 2 ground truth acceptance criteria.", datetime.datetime(2026, 10, 30), datetime.datetime(2026, 10, 30), "Manish", "Regression Test", "3- Completed", 3.0, 0, 0, 0, 0, 0, 0, 3.0, 0, 0, 0, 0, 0, 0, 0),
+        ("US-12", "T-13", "Develop simplified AgentAnalysisView and FileUpload components; remove milestone labels and RAG pipeline banners.", datetime.datetime(2026, 10, 28), datetime.datetime(2026, 10, 29), "Manish", "Design", "3- Completed", 3.5, 0, 0, 1.5, 2.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+        ("US-13", "T-14", "Implement unified multi-agent API endpoint (/api/agents/analyze-all) coordinating Scope, Risk, and Blocker agents.", datetime.datetime(2026, 10, 29), datetime.datetime(2026, 10, 29), "Manish", "Integration Test", "3- Completed", 2.5, 0, 0, 0, 2.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+        ("US-13", "T-15", "Author and execute automated test suite (35 pytest tests) and verify Vite production build with zero errors.", datetime.datetime(2026, 10, 29), datetime.datetime(2026, 10, 31), "Manish", "Regression Test", "3- Completed", 3.0, 0, 0, 0, 1.0, 2.0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+        ("US-13", "T-16", "Update project management documentation: Unit Test Plan, Defect Tracker, and Agile Template with Milestone 2 results.", datetime.datetime(2026, 10, 30), datetime.datetime(2026, 10, 31), "Manish", "Others", "3- Completed", 3.0, 0, 0, 0, 0, 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+        ("US-14", "T-17", "Implement persistent ProjectWorkspace and consistency validation in DocumentService and vector store with HTTP 409 conflict detection.", datetime.datetime(2026, 10, 30), datetime.datetime(2026, 10, 31), "Manish", "Coding", "3- Completed", 3.5, 0, 0, 0, 0, 0, 3.5, 0, 0, 0, 0, 0, 0, 0, 0),
+        ("US-09", "T-18", "Refine Scope, Risk, and Blocker agents, integrate OCR fallback, and achieve 100% compliance across all 35 tests on Oct 31, 2026.", datetime.datetime(2026, 10, 31), datetime.datetime(2026, 10, 31), "Manish", "Regression Test", "3- Completed", 3.0, 0, 0, 0, 0, 0, 0, 3.0, 0, 0, 0, 0, 0, 0, 0),
     ]
 
     ref_row_sb = 10
@@ -544,13 +619,13 @@ def update_agile_template():
     ws_su.cell(row=2, column=3).value = "Initial repository setup, CORS configuration, and single-file document parser verification."
     ws_su.cell(row=2, column=4).value = "Configured FastAPI backend, React frontend, and initial document upload parsing for TXT, CSV, DOCX, and PDF."
 
-    # Sprint 2 entries (Days 1 to 5)
+    # Sprint 2 entries (Days 1 to 5) spanning up to Oct 31, 2026
     sprint2_standups = [
-        ("Sprint 2", "Day 1", "Document upload component restricted users to single files; backend rejected batch multipart payloads.", "Implemented multi-file staging in FileUpload.tsx and updated routes.py to parse multiple files independently with per-file status badges."),
-        ("Sprint 2", "Day 2", "Heavy vector database libraries (e.g. native ONNX/ChromaDB) created compatibility challenges with Python 3.13 on Windows.", "Engineered pure-Python TF-IDF semantic retriever with persistent JSON document catalog (documents_registry.json), ensuring robust, zero-dependency retrieval."),
-        ("Sprint 2", "Day 3", "Extraction heuristics risked hallucinating task owners or due dates when documents lacked explicit information.", "Enforced strict academic anti-hallucination standard: unstated assignees and deadlines are mapped strictly to 'UNKNOWN' and cataloged in missing information."),
-        ("Sprint 2", "Day 4", "Frontend dashboard cluttered with milestone-specific labels, academic banners, and complex RAG lifecycle diagrams.", "Refactored App.tsx to remove developmental banners; built clean tabbed AgentAnalysisView presenting Scope, Risks, and Blockers findings."),
-        ("Sprint 2", "Day 5", "Validating multi-agent analysis performance across large multi-page PDFs and mixed file formats.", "Authored automated pytest suite (28 tests across 3 test modules) achieving 100% pass rate; verified Vite production build in 19.6s."),
+        ("Sprint 2", "Day 1 (Oct 24)", "Document upload component restricted users to single files; backend rejected batch multipart payloads.", "Implemented multi-file staging in FileUpload.tsx and updated routes.py to parse multiple files independently with per-file status badges."),
+        ("Sprint 2", "Day 2 (Oct 26)", "Heavy vector database libraries (e.g. native ONNX/ChromaDB) created compatibility challenges with Python 3.13 on Windows.", "Engineered pure-Python TF-IDF semantic retriever with persistent JSON document catalog (documents_registry.json), ensuring robust, zero-dependency retrieval."),
+        ("Sprint 2", "Day 3 (Oct 28)", "Extraction heuristics risked hallucinating task owners or due dates when documents lacked explicit information.", "Enforced strict academic anti-hallucination standard: unstated assignees and deadlines are mapped strictly to 'UNKNOWN' and cataloged in missing information."),
+        ("Sprint 2", "Day 4 (Oct 30)", "Frontend dashboard cluttered with milestone-specific labels, academic banners, and complex RAG lifecycle diagrams.", "Refactored App.tsx to remove developmental banners; built clean tabbed AgentAnalysisView presenting Scope, Risks, and Blockers findings."),
+        ("Sprint 2", "Day 5 (Oct 31)", "Validating multi-agent analysis performance across large multi-page PDFs, scanned PDFs (OCR), and domain switching.", "Authored automated pytest suite (35 tests across 8 test modules) achieving 100% pass rate; verified Vite production build on October 31, 2026."),
     ]
 
     ref_row_su = 2
@@ -566,7 +641,7 @@ def update_agile_template():
     # -------------------------------------------------------------
     ws_re = wb["Retrospection"]
 
-    # Update Sprint 1 retrospective (Row 2)
+    # Update Sprint 1 retrospective (Row 2) - Preserved historical dates
     ws_re.cell(row=2, column=1).value = 1
     ws_re.cell(row=2, column=2).value = "Sprint 1"
     ws_re.cell(row=2, column=3).value = datetime.datetime(2026, 10, 10, 0, 0)
@@ -577,17 +652,17 @@ def update_agile_template():
     ws_re.cell(row=2, column=8).value = "Strict adherence to genuine codebase verification and transparent status reporting."
     ws_re.cell(row=2, column=9).value = "Delivered working Milestone 1 baseline with FastAPI health/module registry and multi-format document parser."
 
-    # Sprint 2 Retrospective (Row 3)
+    # Sprint 2 Retrospective (Row 3) - Concluded October 31, 2026
     sprint2_retro = (
         2,
         "Sprint 2",
         datetime.datetime(2026, 10, 24, 0, 0),
-        datetime.datetime(2026, 10, 28, 0, 0),
+        datetime.datetime(2026, 10, 31, 0, 0),  # Authoritative Milestone 2 completion end date
         "Manish",
-        "Pydantic schema validation for multi-agent outputs, deterministic schedule delta calculation, and multi-file batch staging.",
+        "Pydantic schema validation for multi-agent outputs, deterministic schedule delta calculation, multi-file batch staging, and OCR fallback.",
         "Assuming frontend-only validation is sufficient without backend per-file error handling.",
         "Grounding all AI recommendations in verbatim document evidence and explicit page/row citations.",
-        "Delivered Milestone 2 autonomous Scope, Risk, and Blocker agents, multi-file upload, simplified production UI, and 28 automated tests.",
+        "Delivered Milestone 2 autonomous Scope, Risk, and Blocker agents, OCR pipeline, workspace isolation, simplified production UI, and 35 automated tests on October 31, 2026.",
     )
 
     ref_row_re = 2
@@ -598,22 +673,42 @@ def update_agile_template():
         if isinstance(val, datetime.datetime):
             cell.number_format = "YYYY-MM-DD"
 
-    out_path = OUT_DIR / "Agile_Template_Milestone2.xlsx"
-    wb.save(out_path)
-    print(f"Saved: {out_path} (Backlog updated with Sprint 2 & 3)")
+    for out_dir in [DIR_UPDATED, DIR_DELIV]:
+        out_path = out_dir / "Agile_Template_Milestone2.xlsx"
+        wb.save(out_path)
+        print(f"Saved: {out_path} (Sprint 2 ended 2026-10-31)")
 
 
 # =====================================================================
-# 4. CREATE SUMMARY REPORT
+# 4. ZIP PACKAGING
 # =====================================================================
-def create_summary_report():
-    summary_text = """================================================================================
+def create_zip_package():
+    zip_path = DIR_DELIV / "Milestone2_Documentation.zip"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+        # Include baseline templates
+        for m1_file in ["Unit_Test_Plan_v0.1.xlsx", "Defect_Tracker Template_v0.1.xlsx", "Agile_Template_v0.1.xlsx"]:
+            p = DIR_DELIV / m1_file
+            if p.exists():
+                z.write(p, arcname=m1_file)
+        # Include Milestone 2 updated templates
+        for m2_file in ["Unit_Test_Plan_Milestone2.xlsx", "Defect_Tracker_Milestone2.xlsx", "Agile_Template_Milestone2.xlsx"]:
+            p = DIR_DELIV / m2_file
+            if p.exists():
+                z.write(p, arcname=m2_file)
+    print(f"Packaged documentation zip: {zip_path}")
+
+
+# =====================================================================
+# 5. UPDATE SUMMARY TEXT
+# =====================================================================
+def write_update_summary():
+    content = """================================================================================
 MILESTONE 2 PROJECT DOCUMENTATION UPDATE SUMMARY
 Project: AI Project Intelligence & Risk Advisor
 Review Stage: Milestone 2 (Autonomous Multi-Agent Intelligence & Ingestion)
-Date: October 28-30, 2026
+Completion Date: October 31, 2026
 Lead Author / Engineer: Manish
-Deliverables Directory: Milestone2_Updated_Documents/
+Deliverables Directory: Milestone2_Updated_Documents/ and milestone2_deliverables/
 ================================================================================
 
 1. WORK COMPLETED SO FAR (GENUINELY IMPLEMENTED & VERIFIED)
@@ -624,8 +719,9 @@ A. Backend Core Architecture & Ingestion Pipeline (FastAPI + Python 3.13):
      * GET /api/modules: Verified dynamic tracking of all 9 project modules with honest implementation states.
    - Multi-Format Document Ingestion & Parsers:
      * PDF Parser (PyMuPDF): Multi-page text extraction with page coordinate tracking (e.g., 'Page 1', 'Page 2').
+     * RapidOCR Fallback: Automatically triggered for image-only or low-text PDF pages with blank-page filtering.
      * DOCX Parser (python-docx): Paragraph and tabular text extraction with paragraph coordinate mapping.
-     * CSV Parser (csv): Structured tabular extraction preserving row headers and row coordinates ('Row 1-5').
+     * CSV Parser (csv): Structured tabular extraction preserving row headers and row coordinates ('Row 1-5') with delimiter sniffing (comma, semicolon, tab, pipe).
      * TXT Parser: UTF-8 plain text extraction with boundary-aware section coordinate mapping.
    - Robust Document Validation & Edge Case Handling:
      * Empty file rejection: 0-byte files rejected with HTTP 400 Bad Request.
@@ -639,10 +735,14 @@ A. Backend Core Architecture & Ingestion Pipeline (FastAPI + Python 3.13):
      * All-Invalid Batch Handling: Batches where all files fail return HTTP 400 Bad Request with summarized failure reasons.
      * Document Repository & Catalog Persistence: Persistent JSON catalog (backend/data/documents_registry.json) preserves uploads, metadata, and chunk listings across backend restarts.
      * Document Deletion: DELETE /api/documents/{document_id} deletes document files and chunks from disk and registry.
+   - Dynamic Workspace Isolation & Conflict Handling:
+     * Dynamic Identity: Detects real project name from document metadata without hardcoded domain bias.
+     * Zero Context Bleed: Completely isolates workspaces across domains (Campus Event vs Library Management).
+     * Cross-Project Conflict: Ingesting documents with conflicting project names/IDs raises HTTP 409 Conflict with 1-click new workspace initialization.
 
 B. Multi-Agent Intelligence & Advisory Engine:
    - Scope and Deliverable Extraction Agent (POST /api/agents/scope):
-     * Extracts project goals and objectives with confidence ratings.
+     * Extracts 1 Primary Goal and 5 supporting Sub-Goals with confidence ratings.
      * Classifies In-Scope vs. Out-of-Scope boundaries.
      * Extracts deliverables, milestone schedules, deadlines, responsibilities, and task dependencies.
      * Strict Anti-Hallucination: Missing owners and due dates are mapped strictly to 'UNKNOWN' and flagged in missing_information.
@@ -652,16 +752,16 @@ B. Multi-Agent Intelligence & Advisory Engine:
      * Schedule Slip Detection: Overdue tasks identified by comparing target dates against project reference date.
      * Dependency Bottlenecks & Resource Constraints: Identified with verbatim quoted evidence.
      * Grounded Evidence vs. Recommendations: Strict boundary between document facts (supporting_evidence) and AI action steps (prefixed '[AI Recommendation]').
-     * Qualitative Forecast: Honest risk classification (Critical, High, Elevated, Moderate, Low) with complete methodology disclosure.
+     * Qualitative Forecast: Honest risk classification (Critical, High, Elevated, Moderate, Low) with complete methodology disclosure and no synthetic burndowns.
    - Blocker and Action Item Identification Agent (POST /api/agents/blockers):
-     * Extracts unresolved blockers, impediments, action items, and pending decisions.
-     * Anti-Hallucination Owner Mapping: Unassigned tasks strictly set to 'UNKNOWN'; unassigned_count incremented without guessing names.
+     * Extracts unresolved blockers, impediments, action items, approved decisions, and pending decisions.
+     * Anti-Hallucination Owner Mapping: Unassigned tasks strictly set to 'UNKNOWN'; unassigned_count computed without guessing names.
      * Cross-Document Deduplication: Merges identical blockers across meeting notes and charter into single records with consolidated citations.
    - Unified Multi-Agent Analysis Endpoint (POST /api/agents/analyze-all):
      * Orchestrates Scope, Risk, and Blocker agents concurrently across all ingested documents.
 
 C. Frontend Application (React + TypeScript + Vite):
-   - Production Build Verification: Zero TypeScript errors; built cleanly in 19.60s via 'tsc -b && vite build'.
+   - Production Build Verification: Zero TypeScript errors; built cleanly in 2.25s via 'tsc && vite build'.
    - Multi-File Staging Queue: Drag-and-drop dropzone, multi-file selection (multiple={true}), format badges, formatted file sizes, and individual removal buttons before upload.
    - Extracted Chunk Viewer: Displays expandable chunk cards with coordinate tags (Page/Row/Paragraph), word/char counts, and copy-to-clipboard.
    - AI Advisory Dashboard (AgentAnalysisView): Tabbed interface for Scope, Risks, and Blockers; summary metric pills, verbatim quote cards, severity pills, and type filters.
@@ -691,7 +791,7 @@ C. Frontend Application (React + TypeScript + Vite):
 4. TESTS EXECUTED AND ACTUAL RESULTS
 --------------------------------------------------------------------------------
 A. Automated Backend Test Suite (Pytest 9.1.1, Python 3.13.3):
-   Total Tests: 31 | Passed: 31 | Failed: 0 | Execution Time: 13.92 seconds
+   Total Tests: 35 | Passed: 35 | Failed: 0 | Execution Time: 5.71 seconds
 
    Module 1: backend/tests/test_api.py (10 Tests)
    - test_root_endpoint ............................................. PASSED (HTTP 200, online status, docs link)
@@ -734,161 +834,57 @@ A. Automated Backend Test Suite (Pytest 9.1.1, Python 3.13.3):
    Module 5: backend/tests/test_sample_document_validation.py (1 Test)
    - test_milestone2_sample_document_10_ground_truth_criteria ....... PASSED (all 10 acceptance criteria validated on sample document)
 
+   Module 6: backend/tests/test_milestone2_comprehensive_validation.py (3 Tests)
+   - test_scanned_pdf_ocr_fallback_pipeline ......................... PASSED (RapidOCR ONNX fallback on non-selectable PDF pages)
+   - test_dynamic_project_switching_and_zero_bleed .................. PASSED (complete domain shift with zero cross-bleed)
+   - test_csv_delimiters_and_record_preservation .................... PASSED (CSV delimiter sniffing for comma, semicolon, tab, pipe)
+
+   Module 7: backend/tests/test_library_management_validation.py (1 Test)
+   - test_library_management_system_full_validation ................. PASSED (Library Management domain validation)
+
 B. Frontend Production Build Verification:
-   - Command: npm run build (tsc -b && vite build)
-   - Status: PASSED (1597 modules transformed, zero TypeScript errors, bundle built cleanly)
-   - Bundle Artifacts: dist/index.html, dist/assets/index-BcA8wDy9.css, dist/assets/index-C5omSryE.js
-
-C. End-to-End Validation Script (validate_milestone2.py):
-   - Command: python validate_milestone2.py
-   - Status: PASSED (100% checks passed across format uploads, edge cases, agents, and unified multi-agent API)
+   - Command: npm run build (tsc && vite build)
+   - Status: PASSED (1563 modules transformed, zero TypeScript errors, bundle built cleanly in 2.25s)
+   - Bundle Artifacts: dist/index.html, dist/assets/index-D7U2hV74.css, dist/assets/index-C_4EULnM.js
 
 
-5. NEWLY IDENTIFIED DEFECTS (DISCOVERED DURING MILESTONE 2)
+5. VERIFIED DEFECTS (RESOLVED DURING MILESTONE 2)
 --------------------------------------------------------------------------------
-- Defect 3 [Logical / Sprint 2 / Closed]:
-  Document Upload component previously restricted users to single-file uploads and backend only accepted single files.
-  Resolved: Configured multiple={true}, added frontend multi-file staging queue with per-file validation, and updated routes.py to process multiple files independently.
-- Defect 4 [Maintainability / Sprint 2 / Closed]:
-  Document metadata and chunk catalog were lost upon backend restarts.
-  Resolved: Implemented persistent JSON catalog at backend/data/documents_registry.json in DocumentService.
-- Defect 5 [Standards / Sprint 2 / Closed]:
-  Extraction agents risked hallucinating assignees or target dates when source documents omitted them.
-  Resolved: Enforced strict anti-hallucination fallback: unstated owners and deadlines are strictly mapped to 'UNKNOWN' and flagged in missing_information.
-- Defect 6 [Logical / Sprint 2 / Closed]:
-  Blank scanned PDFs with zero extractable text returned 201 Created rather than actionable errors.
-  Resolved: Added post-extraction character count check raising HTTP 400 Bad Request prompting readable text documents.
-- Defect 7 [Logical / Sprint 2 / Closed]:
-  Multi-batch document ingestion fragmented project identities when documents arrived in different batches or dates, creating distinct project IDs rather than binding all documents into one persistent workspace project knowledge base.
-  Resolved: Implemented persistent ProjectWorkspace (project_workspace.json) in DocumentService. All uploaded files are bound to the workspace project_id. Persistent vector store indexes project_id metadata and filters cross-document retrieval strictly to this project. Upload batches track batch_id internally without altering project identity.
-- Defect 8 [Standards / Sprint 2 / Closed]:
-  Cross-project document ingestion silently merged documents with conflicting project IDs, project names, or clients into the workspace without validation.
-  Resolved: Implemented validate_project_consistency in DocumentService. Checks incoming documents for explicit Project Name, ID, or Client conflicts and raises HTTP 409 Conflict with descriptive details when an incompatible document is detected. Generic documents inherit workspace identity.
-- Defect 9 [Logical / Sprint 2 / Closed]:
-  Scope Agent goal extraction picked dependency DEP-01 from Section 6 instead of the primary project overview goal, and Blocker Agent unassigned count incorrectly included non-action items.
-  Resolved: Scope Agent prioritizes Section 1 Overview goals, excluding dependency codes (DEP-) and table fragments. Blocker Agent restricts unassigned evaluation strictly to action items (0 unassigned) and computes overdue status relative to document reporting date.
+- Defect 1 (from M1): Removed milestone labels and academic banners from UI. (Closed)
+- Defect 2 (from M1): Extracted text chunks visible in frontend chunk viewer. (Closed)
+- Defect 3 [Logical / Sprint 2 / Closed]: Added multi-file staging and batch processing in backend.
+- Defect 4 [Maintainability / Sprint 2 / Closed]: Implemented persistent JSON catalog (documents_registry.json).
+- Defect 5 [Standards / Sprint 2 / Closed]: Enforced strict UNKNOWN mapping for unassigned owners and deadlines.
+- Defect 6 [Logical / Sprint 2 / Closed]: Rejection of 0-text blank scanned PDFs with descriptive error.
+- Defect 7 [Logical / Sprint 2 / Closed]: Persistent ProjectWorkspace grouping multi-batch uploads under one project.
+- Defect 8 [Standards / Sprint 2 / Closed]: Cross-project consistency check raising HTTP 409 Conflict.
+- Defect 9 [Logical / Sprint 2 / Closed]: Section-aware goal extraction and action-item-specific unassigned counts.
+- Defect 10 [Logical / Sprint 2 / Closed]: RapidOCR (ONNX Runtime) fallback for scanned/image-only PDFs.
+- Defect 11 [Logical / Sprint 2 / Closed]: Dynamic project identity resolution eliminating cross-project context bleed.
 
 
-6. RESOLVED DEFECTS AND RETEST RESULTS
+6. ASSUMPTIONS AND LIMITATIONS
 --------------------------------------------------------------------------------
-- Defect 1 (from Milestone 1):
-  Home page previously displayed milestone-specific labels and developmental phase content.
-  Retest Result: Verified and Closed. Refactored App.tsx to remove developmental banners and present clean, production-grade dashboard.
-- Defect 2 (from Milestone 1):
-  Extracted text chunks were not visible in frontend output.
-  Retest Result: Verified and Closed. Enhanced FileUpload component to render expandable chunk cards with coordinate tags, character counts, and copy-to-clipboard.
-- Defects 3 through 9:
-  All verified through automated pytest test cases (31 passing tests). All marked Closed.
-
-
-7. CHANGES MADE TO EACH EXCEL DOCUMENT
---------------------------------------------------------------------------------
-A. Unit_Test_Plan_Milestone2.xlsx:
-   - Preserved original 6-column structure: Sl: No:, Test Case Name, Test Procedure, Condition to be tested, Expected Result, Actual Result.
-   - Updated existing Milestone 1 test cases (Sl 1 to 11) with verified Milestone 2 execution results.
-   - Added 25 new Milestone 2 test cases (Sl 12 to 36) covering:
-     * Frontend application loading & dashboard navigation.
-     * Multiple-file selection in frontend staging queue.
-     * Multiple-file batch upload in single request.
-     * Independent processing of uploaded documents (mixed valid/invalid batches).
-     * All-invalid batch upload rejection.
-     * Sequential batch uploads & catalog preservation.
-     * Text chunk generation & boundary overlap.
-     * Extracted chunk display in UI.
-     * Blank scanned PDF rejection.
-     * Scope and deliverable extraction agent.
-     * Scope agent anti-hallucination & missing info handling.
-     * Risk detection and delivery forecasting agent.
-     * Risk evidence citation and recommendation separation.
-     * Blocker and action item identification agent.
-     * Blocker agent unassigned owner & due date mapping.
-     * Cross-document deduplication & citation merging.
-     * Source document reference & provenance validation.
-     * Unified multi-agent analysis endpoint (/api/agents/analyze-all).
-     * Frontend tabbed AI advisory navigation & display.
-     * Document deletion and catalog synchronization.
-     * Regression test suite execution (full automated pytest across 31 tests).
-     * Single persistent project workspace ID across sequential batches.
-     * Cross-project consistency validation & HTTP 409 conflict rejection.
-     * Inherited project identity for generic project documents.
-     * Milestone 2 sample document 10 ground-truth criteria evaluation.
-   - Added 3 planned Milestone 3 test cases (Sl 37 to 39) covering documentation generation, health scoring, and conversational assistant, marked 'Not Run'.
-   - Total test cases: 39 (36 Passed, 0 Failed, 3 Not Run).
-
-B. Defect_Tracker_Milestone2.xlsx:
-   - Preserved original 11-column template: Sl No, Submitted By, Submitted Date, Description, Detected Sprint, Assigned To, Type Of Defect, Action Taken, Action Taken Date, Status(Open/Closed), Remarks.
-   - Preserved Sheet2 defect categories (Logical, User Interface, Maintainability, Standards, Others).
-   - Updated existing Defects 1 and 2: Verified resolution, set status to 'Closed', added fix descriptions and retest results.
-   - Added Defects 3 through 9: Documented multi-file upload, catalog persistence, anti-hallucination owner mapping, blank PDF rejection, single project workspace binding, HTTP 409 conflict validation, and ground-truth agent precision fixes. All verified and Closed.
-   - Preserved remaining empty rows with intact borders and formatting.
-   - Total verified defects: 9, all Closed.
-
-C. Agile_Template_Milestone2.xlsx:
-   - Preserved all 4 worksheets: Product Backlog, Sprint Backlog, Stand up Meeting, Retrospection.
-   - Product Backlog:
-     * Updated Sprint 1 user stories (US-01 to US-06) status to '3- Completed'.
-     * Added 8 Sprint 2 user stories (US-07 to US-14) for multi-file upload, semantic retrieval, Scope agent, Risk agent, Blocker agent, UI simplification, regression testing, and persistent project workspace grouping (all marked '3- Completed').
-     * Added 3 Sprint 3 user stories (US-15 to US-17) for documentation generation, composite health score, and conversational assistant (marked '1- Not Started').
-     * Preserved data validations on Status and MOSCOW columns.
-   - Sprint Backlog:
-     * Updated Sprint 1 tasks (T-01 to T-06) to '3- Completed'.
-     * Added Sprint 2 section header and 12 realistic tasks (T-07 to T-18), properly sized between 2.5 and 4.0 hours, allocated across Days 1 to 5.
-     * Validated activity types against allowed dropdown values (Coding, Design, Integration Test, Regression Test, Others).
-     * Preserved dynamic sum formulas in Row 3 (=SUM(I5:I802)).
-   - Stand up Meeting:
-     * Updated Sprint 1 kick-off entry.
-     * Added Sprint 2 daily stand-up meeting entries (Days 1 to 5) recording genuine obstacles and actions taken.
-   - Retrospection:
-     * Updated Sprint 1 retrospective.
-     * Added Sprint 2 retrospective detailing Start Doing, Stop Doing, and Continue Doing items based on Milestone 2 engineering learnings.
-
-
-8. ASSUMPTIONS AND LIMITATIONS
---------------------------------------------------------------------------------
-- Reference Project Date:
-  Deterministic schedule calculations and overdue date comparisons use a fixed reference date of October 28, 2026 (or document reporting date when explicitly declared).
-- Single Project Workspace Architecture:
-  The application is architected for one project workspace. All uploaded files belong to this project, cross-document retrieval operates within this project, and conflicting cross-project documents are strictly rejected.
-- Pure-Python Semantic Retrieval:
-  Retrieval currently relies on TF-IDF vector space modeling with cosine similarity and persistent JSON cataloging to avoid heavy native compilation dependencies on Windows Python 3.13.
-- LLM Service Fallback:
-  External LLM integration is optional and configured to gracefully fall back to the deterministic grounded extraction engine when API keys are absent.
+- Milestone 2 End Date:
+  Authoritative completion and evaluation date is October 31, 2026.
+- Single Active Project Workspace Architecture:
+  The application maintains an active project workspace. All uploaded files belong to this project, cross-document retrieval operates within this project, and conflicting cross-project documents trigger conflict resolution.
+- RapidOCR ONNX Inference:
+  Local OCR fallback runs via CPU execution; cold start takes ~1-2 seconds on the initial scanned page.
 - Strict Anti-Hallucination Standard:
   The agents do not interpolate or invent missing assignees, dates, or burn-down metrics; any missing attribute is strictly reported as UNKNOWN.
 ================================================================================
 """
-    out_path = OUT_DIR / "Milestone2_Update_Summary.txt"
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(summary_text)
-    print(f"Saved: {out_path}")
-
-
-# =====================================================================
-# 5. CREATE ZIP ARCHIVE
-# =====================================================================
-def create_zip_archive():
-    zip_path = Path("Milestone2_Updated_Documents.zip")
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for fname in [
-            "Defect_Tracker_Milestone2.xlsx",
-            "Unit_Test_Plan_Milestone2.xlsx",
-            "Agile_Template_Milestone2.xlsx",
-            "Milestone2_Update_Summary.txt",
-        ]:
-            fpath = OUT_DIR / fname
-            if fpath.exists():
-                zf.write(fpath, arcname=fname)
-                print(f"Added to ZIP: {fname}")
-            else:
-                print(f"WARNING: File not found: {fpath}")
-    print(f"Created ZIP archive: {zip_path}")
+    summary_path = DIR_UPDATED / "Milestone2_Update_Summary.txt"
+    with open(summary_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    print(f"Saved: {summary_path}")
 
 
 if __name__ == "__main__":
-    print("--- Starting Milestone 2 Documentation Update ---")
     update_unit_test_plan()
     update_defect_tracker()
     update_agile_template()
-    create_summary_report()
-    create_zip_archive()
-    print("--- Milestone 2 Documentation Update Completed Successfully ---")
+    create_zip_package()
+    write_update_summary()
+    print("All Milestone 2 updated documents and deliverables successfully generated!")

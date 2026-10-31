@@ -6,6 +6,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?style=for-the-badge&logo=typescript)](file:///frontend)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi)](file:///backend)
 [![RapidOCR](https://img.shields.io/badge/RapidOCR-ONNX%20Runtime-orange?style=for-the-badge)](file:///backend/app/services/ocr_service.py)
+[![Milestone 2 Status](https://img.shields.io/badge/Milestone%202-Completed%2031%20Oct%202026-green?style=for-the-badge)](file:///milestone2_deliverables)
 
 An autonomous multi-agent intelligence platform that ingests unstructured and semi-structured project documentation (charters, requirements, sprint tasks, meeting minutes), constructs an isolated semantic knowledge base, and executes evidence-grounded multi-agent reasoning to extract goals, detect delivery risks, identify blockers, and forecast milestones with exact source citations.
 
@@ -413,7 +414,7 @@ Expected output:
 
 ## 18. Implemented vs Planned Capabilities
 
-### Currently Implemented & Verified (Milestone 1 & 2)
+### Currently Implemented & Verified (Milestone 1 & Milestone 2 — Completed 31 October 2026)
 - [x] Multi-format document upload (PDF, DOCX, CSV, TXT)
 - [x] Batch file selection, staging, removal, and duplicate detection
 - [x] Scanned PDF extraction with RapidOCR (ONNX) and blank-page detection

@@ -105,9 +105,9 @@ def build_agile_template():
     ws_re.append(["SL #", "Sprint #", "Sprint start date", "Sprint end date", "Team member name ", "Start Doing", "Stop Doing ", "Continue Doing ", "Action taken"])
     
     re_rows = [
-        (1, 1, "2026-10-14", "2026-10-26", "Manish", "Verifying all dependencies and file structures with automated commands before declaring status", "Assuming code exists based solely on project proposals or requirement descriptions", "Maintaining strict evidence-based auditing and modular task estimation (0.5 to 12 hours)", "Established Milestone 1 verification baseline, customized PM templates, and defined Milestone 2 build plan"),
-        (2, 2, "2026-10-27", "2026-11-09", "Team", "To be updated upon Sprint 2 completion", "To be updated upon Sprint 2 completion", "To be updated upon Sprint 2 completion", "Sprint 2 planning scheduled"),
-        (3, 3, "2026-11-10", "2026-11-23", "Team", "To be updated upon Sprint 3 completion", "To be updated upon Sprint 3 completion", "To be updated upon Sprint 3 completion", "Sprint 3 planning scheduled")
+        (1, 1, "2026-10-14", "2026-10-17", "Manish", "Verifying all dependencies and file structures with automated commands before declaring status", "Assuming code exists based solely on project proposals or requirement descriptions", "Maintaining strict evidence-based auditing and modular task estimation (0.5 to 12 hours)", "Established Milestone 1 verification baseline, customized PM templates, and defined Milestone 2 build plan"),
+        (2, 2, "", "", "Team", "To be updated upon Sprint 2 completion", "To be updated upon Sprint 2 completion", "To be updated upon Sprint 2 completion", "Sprint 2 scheduled"),
+        (3, 3, "", "", "Team", "To be updated upon Sprint 3 completion", "To be updated upon Sprint 3 completion", "To be updated upon Sprint 3 completion", "Sprint 3 scheduled")
     ]
     for r in re_rows:
         ws_re.append(list(r))

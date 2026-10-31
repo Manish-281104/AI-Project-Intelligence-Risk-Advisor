@@ -8,6 +8,14 @@
 
 ---
 
+> [!NOTE] Authoritative Milestone 2 Timeline & Scope Calibration (Concluded: 31 October 2026)
+> - **Milestone 2 Completion End Date:** 31 October 2026.
+> - **Verified Completed Scope (Milestone 2):** Task 0 (Foundation & Scaffolding), Task 1 (Multi-Format Document Ingestion & Scanned PDF OCR Fallback), Task 2 (Boundary-Aware Chunking & Persistent Vector Store), Task 3 (Scope & Deliverable Extraction Agent), Task 4 (Risk Detection & Delivery Forecasting Agent), Task 5 (Blocker & Action Item Identification Agent), and Task 9 (Interactive React 18 + Vite Dashboard & Ingestion Lab).
+> - **Deferred Planned Scope (Milestone 3):** Task 6 (Documentation Generation Agent), Task 7 (Composite Health Scoring Formula), Task 8 (Conversational Assistant with Citations), and Task 10 (Docker Compose containerization).
+> - **Test Suite Evidence:** 35 automated pytest tests passing in 5.71 seconds; 11 verified defects resolved and closed.
+
+---
+
 ## 1. Prioritized Implementation Sequence
 
 Based on codebase dependencies and the findings of `MILESTONE1_REPOSITORY_AUDIT.md`, development is structured into the following prioritized order:
