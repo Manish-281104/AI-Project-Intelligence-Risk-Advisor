@@ -1,0 +1,127 @@
+# =====================================================================
+# AI Project Intelligence & Risk Advisor - Comprehensive .gitignore
+# Suitable for React + TypeScript + Vite and Python + FastAPI
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# 1. Python & Virtual Environments
+# ---------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+backend/.venv/
+backend/venv/
+backend/env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# ---------------------------------------------------------------------
+# 2. Node & Frontend (React + Vite + TypeScript)
+# ---------------------------------------------------------------------
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+frontend/.vite/
+.vite/
+coverage/
+frontend/coverage/
+.eslintcache
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------------------------------------------------------------------
+# 3. Environment Variables & Secrets (CRITICAL SECURITY)
+# ---------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+credentials.json
+service-account.json
+client_secret*.json
+LICENSE
+
+# ---------------------------------------------------------------------
+# 4. IDE, Editors & Operating System
+# ---------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+
+# ---------------------------------------------------------------------
+# 5. Logs & Temporary Files
+# ---------------------------------------------------------------------
+*.log
+logs/
+tmp/
+temp/
+cache/
+.cache/
+
+# ---------------------------------------------------------------------
+# 6. Local Ingestion Document Storage & Vector Persistence
+# ---------------------------------------------------------------------
+# Exclude private user-uploaded files and runtime databases
+backend/uploads/*
+!backend/uploads/.gitkeep
+uploads/*
+!uploads/.gitkeep
+
+backend/data/*
+!backend/data/.gitkeep
+data/*
+!data/.gitkeep
+
+# Vector store and database indexes
+chroma_db/
+*.chroma
+*.sqlite3
+*.db
+
+# ---------------------------------------------------------------------
+# 7. Explicit Tracking Whitelist for Test Fixtures & Deliverables
+# ---------------------------------------------------------------------
+!sample_documents/**
+!milestone1_deliverables/**
+!milestone2_deliverables/**
+!Milestone2_Updated_Documents/**

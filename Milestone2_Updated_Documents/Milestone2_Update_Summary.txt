@@ -1,0 +1,249 @@
+================================================================================
+MILESTONE 2 PROJECT DOCUMENTATION UPDATE SUMMARY
+Project: AI Project Intelligence & Risk Advisor
+Review Stage: Milestone 2 (Autonomous Multi-Agent Intelligence & Ingestion)
+Date: October 28-30, 2026
+Lead Author / Engineer: Manish
+Deliverables Directory: Milestone2_Updated_Documents/
+================================================================================
+
+1. WORK COMPLETED SO FAR (GENUINELY IMPLEMENTED & VERIFIED)
+--------------------------------------------------------------------------------
+A. Backend Core Architecture & Ingestion Pipeline (FastAPI + Python 3.13):
+   - Health Monitoring & Module Registry:
+     * GET /api/health: Verified live reporting with storage readiness and active Milestone 2 pipeline status.
+     * GET /api/modules: Verified dynamic tracking of all 9 project modules with honest implementation states.
+   - Multi-Format Document Ingestion & Parsers:
+     * PDF Parser (PyMuPDF): Multi-page text extraction with page coordinate tracking (e.g., 'Page 1', 'Page 2').
+     * DOCX Parser (python-docx): Paragraph and tabular text extraction with paragraph coordinate mapping.
+     * CSV Parser (csv): Structured tabular extraction preserving row headers and row coordinates ('Row 1-5').
+     * TXT Parser: UTF-8 plain text extraction with boundary-aware section coordinate mapping.
+   - Robust Document Validation & Edge Case Handling:
+     * Empty file rejection: 0-byte files rejected with HTTP 400 Bad Request.
+     * Unsupported extension rejection: Disallowed file types rejected with HTTP 400 and allowed whitelist (.pdf, .docx, .csv, .txt).
+     * Corrupted PDF detection: PDFs lacking valid %PDF signatures rejected safely without server crashes.
+     * Blank scanned PDF detection: Documents with zero selectable text rejected with HTTP 400 prompting readable text uploads.
+   - Multiple-File Ingestion:
+     * Batch Upload: POST /api/documents/upload accepts multiple files in a single multipart request.
+     * Independent Processing: Each document in a batch is validated and chunked independently.
+     * Partial Batch Success: Mixed valid/invalid batches process valid files (HTTP 201) and return per-file error badges without aborting valid documents.
+     * All-Invalid Batch Handling: Batches where all files fail return HTTP 400 Bad Request with summarized failure reasons.
+     * Document Repository & Catalog Persistence: Persistent JSON catalog (backend/data/documents_registry.json) preserves uploads, metadata, and chunk listings across backend restarts.
+     * Document Deletion: DELETE /api/documents/{document_id} deletes document files and chunks from disk and registry.
+
+B. Multi-Agent Intelligence & Advisory Engine:
+   - Scope and Deliverable Extraction Agent (POST /api/agents/scope):
+     * Extracts project goals and objectives with confidence ratings.
+     * Classifies In-Scope vs. Out-of-Scope boundaries.
+     * Extracts deliverables, milestone schedules, deadlines, responsibilities, and task dependencies.
+     * Strict Anti-Hallucination: Missing owners and due dates are mapped strictly to 'UNKNOWN' and flagged in missing_information.
+     * Grounded citations: Every extracted item references source document and chunk coordinates.
+   - Risk Detection and Delivery Forecasting Agent (POST /api/agents/risks):
+     * Dual-engine approach: Deterministic schedule delta calculations combined with qualitative 5x5 severity matrix.
+     * Schedule Slip Detection: Overdue tasks identified by comparing target dates against project reference date.
+     * Dependency Bottlenecks & Resource Constraints: Identified with verbatim quoted evidence.
+     * Grounded Evidence vs. Recommendations: Strict boundary between document facts (supporting_evidence) and AI action steps (prefixed '[AI Recommendation]').
+     * Qualitative Forecast: Honest risk classification (Critical, High, Elevated, Moderate, Low) with complete methodology disclosure.
+   - Blocker and Action Item Identification Agent (POST /api/agents/blockers):
+     * Extracts unresolved blockers, impediments, action items, and pending decisions.
+     * Anti-Hallucination Owner Mapping: Unassigned tasks strictly set to 'UNKNOWN'; unassigned_count incremented without guessing names.
+     * Cross-Document Deduplication: Merges identical blockers across meeting notes and charter into single records with consolidated citations.
+   - Unified Multi-Agent Analysis Endpoint (POST /api/agents/analyze-all):
+     * Orchestrates Scope, Risk, and Blocker agents concurrently across all ingested documents.
+
+C. Frontend Application (React + TypeScript + Vite):
+   - Production Build Verification: Zero TypeScript errors; built cleanly in 19.60s via 'tsc -b && vite build'.
+   - Multi-File Staging Queue: Drag-and-drop dropzone, multi-file selection (multiple={true}), format badges, formatted file sizes, and individual removal buttons before upload.
+   - Extracted Chunk Viewer: Displays expandable chunk cards with coordinate tags (Page/Row/Paragraph), word/char counts, and copy-to-clipboard.
+   - AI Advisory Dashboard (AgentAnalysisView): Tabbed interface for Scope, Risks, and Blockers; summary metric pills, verbatim quote cards, severity pills, and type filters.
+   - UI Simplification: Removed milestone-specific labels, RAG lifecycle stages, and academic banners for a clean, production-grade interface.
+
+
+2. PARTIALLY COMPLETED FUNCTIONALITY
+--------------------------------------------------------------------------------
+- Semantic Retrieval & Embeddings:
+  * Currently implemented using pure-Python TF-IDF vector similarity with cosine ranking and persistent JSON catalog.
+  * Dense vector embeddings via external vector databases (e.g. ChromaDB/Pinecone) remain optional/planned for future scaling.
+- External LLM Integration:
+  * Backend contains optional LLM client (app/services/llm_service.py) supporting OpenAI/Gemini with JSON schema enforcement.
+  * When API keys are not supplied, the system seamlessly falls back to the deterministic grounded extraction engine.
+
+
+3. REMAINING WORK (PLANNED FOR MILESTONE 3)
+--------------------------------------------------------------------------------
+- Documentation Generation Agent:
+  * Automated synthesis of Gherkin-format user stories, draft risk registers, and executive summary reports.
+- Composite Project Health Scoring (0-100):
+  * Mathematical formula combining schedule adherence (0.35), risk severity density (0.30), unresolved blockers (0.20), and document completeness (0.15).
+- Conversational Project Intelligence Assistant:
+  * Natural language Q&A assistant with conversational memory and strict document citation grounding.
+
+
+4. TESTS EXECUTED AND ACTUAL RESULTS
+--------------------------------------------------------------------------------
+A. Automated Backend Test Suite (Pytest 9.1.1, Python 3.13.3):
+   Total Tests: 31 | Passed: 31 | Failed: 0 | Execution Time: 13.92 seconds
+
+   Module 1: backend/tests/test_api.py (10 Tests)
+   - test_root_endpoint ............................................. PASSED (HTTP 200, online status, docs link)
+   - test_health_endpoint ........................................... PASSED (HTTP 200, storage_ready=True, active M2 pipeline)
+   - test_modules_endpoint .......................................... PASSED (HTTP 200, 9 modules registered)
+   - test_upload_txt_file ........................................... PASSED (HTTP 201, character count > 0)
+   - test_upload_csv_file ........................................... PASSED (HTTP 201, row coordinates preserved)
+   - test_upload_docx_file .......................................... PASSED (HTTP 201, paragraph coordinates preserved)
+   - test_upload_pdf_file ........................................... PASSED (HTTP 201, PyMuPDF page text extracted)
+   - test_upload_empty_file_rejected ................................ PASSED (HTTP 400, empty file rejection)
+   - test_upload_unsupported_extension_rejected ..................... PASSED (HTTP 400, disallowed format rejection)
+   - test_upload_corrupted_pdf_rejected ............................. PASSED (HTTP 400, malformed PDF rejection)
+
+   Module 2: backend/tests/test_chunking.py (8 Tests)
+   - test_chunker_unit_boundaries_and_overlap ....................... PASSED (sentence boundary chunking with overlap)
+   - test_chunker_empty_and_whitespace .............................. PASSED (empty/whitespace text handling)
+   - test_upload_txt_chunking ....................................... PASSED (TXT chunks with coordinates)
+   - test_upload_multipage_pdf_chunking ............................. PASSED (multi-page PDF chunks with page numbers)
+   - test_upload_csv_chunking_with_row_references ................... PASSED (CSV chunks with row coordinates)
+   - test_upload_docx_chunking ...................................... PASSED (DOCX chunks with paragraph coordinates)
+   - test_blank_pdf_rejected_no_extractable_text .................... PASSED (HTTP 400, blank scanned PDF rejection)
+   - test_whitespace_only_txt_rejected .............................. PASSED (HTTP 400, whitespace-only rejection)
+
+   Module 3: backend/tests/test_milestone2_agents.py (10 Tests)
+   - test_single_file_upload_succeeds ............................... PASSED (single-file backward compatibility)
+   - test_multiple_valid_files_upload_in_one_request ................ PASSED (HTTP 201, multi-file batch upload)
+   - test_mixture_valid_and_invalid_files_upload .................... PASSED (HTTP 201, partial batch success)
+   - test_all_invalid_files_batch_rejected .......................... PASSED (HTTP 400, all-invalid batch rejection)
+   - test_sequential_single_file_uploads_succeed .................... PASSED (catalog persistence across uploads)
+   - test_document_listing_and_deletion ............................. PASSED (GET /documents & DELETE /documents/{id})
+   - test_scope_agent_extraction .................................... PASSED (goals, deliverables, anti-hallucination)
+   - test_risk_agent_overdue_schedule_and_dependency_detection ...... PASSED (schedule deltas, risk matrix, evidence)
+   - test_blocker_agent_extraction_and_unassigned_handling .......... PASSED (blockers, UNKNOWN owners, deduplication)
+   - test_comprehensive_multi_agent_analysis ........................ PASSED (POST /api/agents/analyze-all unified API)
+
+   Module 4: backend/tests/test_project_grouping_and_consistency.py (2 Tests)
+   - test_single_persistent_project_id_across_multiple_batches ...... PASSED (4 sequential batches share single project_id, HTTP 409 conflict detection)
+   - test_inherited_project_identity_for_generic_documents .......... PASSED (generic documents inherit workspace project identity)
+
+   Module 5: backend/tests/test_sample_document_validation.py (1 Test)
+   - test_milestone2_sample_document_10_ground_truth_criteria ....... PASSED (all 10 acceptance criteria validated on sample document)
+
+B. Frontend Production Build Verification:
+   - Command: npm run build (tsc -b && vite build)
+   - Status: PASSED (1597 modules transformed, zero TypeScript errors, bundle built cleanly)
+   - Bundle Artifacts: dist/index.html, dist/assets/index-BcA8wDy9.css, dist/assets/index-C5omSryE.js
+
+C. End-to-End Validation Script (validate_milestone2.py):
+   - Command: python validate_milestone2.py
+   - Status: PASSED (100% checks passed across format uploads, edge cases, agents, and unified multi-agent API)
+
+
+5. NEWLY IDENTIFIED DEFECTS (DISCOVERED DURING MILESTONE 2)
+--------------------------------------------------------------------------------
+- Defect 3 [Logical / Sprint 2 / Closed]:
+  Document Upload component previously restricted users to single-file uploads and backend only accepted single files.
+  Resolved: Configured multiple={true}, added frontend multi-file staging queue with per-file validation, and updated routes.py to process multiple files independently.
+- Defect 4 [Maintainability / Sprint 2 / Closed]:
+  Document metadata and chunk catalog were lost upon backend restarts.
+  Resolved: Implemented persistent JSON catalog at backend/data/documents_registry.json in DocumentService.
+- Defect 5 [Standards / Sprint 2 / Closed]:
+  Extraction agents risked hallucinating assignees or target dates when source documents omitted them.
+  Resolved: Enforced strict anti-hallucination fallback: unstated owners and deadlines are strictly mapped to 'UNKNOWN' and flagged in missing_information.
+- Defect 6 [Logical / Sprint 2 / Closed]:
+  Blank scanned PDFs with zero extractable text returned 201 Created rather than actionable errors.
+  Resolved: Added post-extraction character count check raising HTTP 400 Bad Request prompting readable text documents.
+- Defect 7 [Logical / Sprint 2 / Closed]:
+  Multi-batch document ingestion fragmented project identities when documents arrived in different batches or dates, creating distinct project IDs rather than binding all documents into one persistent workspace project knowledge base.
+  Resolved: Implemented persistent ProjectWorkspace (project_workspace.json) in DocumentService. All uploaded files are bound to the workspace project_id. Persistent vector store indexes project_id metadata and filters cross-document retrieval strictly to this project. Upload batches track batch_id internally without altering project identity.
+- Defect 8 [Standards / Sprint 2 / Closed]:
+  Cross-project document ingestion silently merged documents with conflicting project IDs, project names, or clients into the workspace without validation.
+  Resolved: Implemented validate_project_consistency in DocumentService. Checks incoming documents for explicit Project Name, ID, or Client conflicts and raises HTTP 409 Conflict with descriptive details when an incompatible document is detected. Generic documents inherit workspace identity.
+- Defect 9 [Logical / Sprint 2 / Closed]:
+  Scope Agent goal extraction picked dependency DEP-01 from Section 6 instead of the primary project overview goal, and Blocker Agent unassigned count incorrectly included non-action items.
+  Resolved: Scope Agent prioritizes Section 1 Overview goals, excluding dependency codes (DEP-) and table fragments. Blocker Agent restricts unassigned evaluation strictly to action items (0 unassigned) and computes overdue status relative to document reporting date.
+
+
+6. RESOLVED DEFECTS AND RETEST RESULTS
+--------------------------------------------------------------------------------
+- Defect 1 (from Milestone 1):
+  Home page previously displayed milestone-specific labels and developmental phase content.
+  Retest Result: Verified and Closed. Refactored App.tsx to remove developmental banners and present clean, production-grade dashboard.
+- Defect 2 (from Milestone 1):
+  Extracted text chunks were not visible in frontend output.
+  Retest Result: Verified and Closed. Enhanced FileUpload component to render expandable chunk cards with coordinate tags, character counts, and copy-to-clipboard.
+- Defects 3 through 9:
+  All verified through automated pytest test cases (31 passing tests). All marked Closed.
+
+
+7. CHANGES MADE TO EACH EXCEL DOCUMENT
+--------------------------------------------------------------------------------
+A. Unit_Test_Plan_Milestone2.xlsx:
+   - Preserved original 6-column structure: Sl: No:, Test Case Name, Test Procedure, Condition to be tested, Expected Result, Actual Result.
+   - Updated existing Milestone 1 test cases (Sl 1 to 11) with verified Milestone 2 execution results.
+   - Added 25 new Milestone 2 test cases (Sl 12 to 36) covering:
+     * Frontend application loading & dashboard navigation.
+     * Multiple-file selection in frontend staging queue.
+     * Multiple-file batch upload in single request.
+     * Independent processing of uploaded documents (mixed valid/invalid batches).
+     * All-invalid batch upload rejection.
+     * Sequential batch uploads & catalog preservation.
+     * Text chunk generation & boundary overlap.
+     * Extracted chunk display in UI.
+     * Blank scanned PDF rejection.
+     * Scope and deliverable extraction agent.
+     * Scope agent anti-hallucination & missing info handling.
+     * Risk detection and delivery forecasting agent.
+     * Risk evidence citation and recommendation separation.
+     * Blocker and action item identification agent.
+     * Blocker agent unassigned owner & due date mapping.
+     * Cross-document deduplication & citation merging.
+     * Source document reference & provenance validation.
+     * Unified multi-agent analysis endpoint (/api/agents/analyze-all).
+     * Frontend tabbed AI advisory navigation & display.
+     * Document deletion and catalog synchronization.
+     * Regression test suite execution (full automated pytest across 31 tests).
+     * Single persistent project workspace ID across sequential batches.
+     * Cross-project consistency validation & HTTP 409 conflict rejection.
+     * Inherited project identity for generic project documents.
+     * Milestone 2 sample document 10 ground-truth criteria evaluation.
+   - Added 3 planned Milestone 3 test cases (Sl 37 to 39) covering documentation generation, health scoring, and conversational assistant, marked 'Not Run'.
+   - Total test cases: 39 (36 Passed, 0 Failed, 3 Not Run).
+
+B. Defect_Tracker_Milestone2.xlsx:
+   - Preserved original 11-column template: Sl No, Submitted By, Submitted Date, Description, Detected Sprint, Assigned To, Type Of Defect, Action Taken, Action Taken Date, Status(Open/Closed), Remarks.
+   - Preserved Sheet2 defect categories (Logical, User Interface, Maintainability, Standards, Others).
+   - Updated existing Defects 1 and 2: Verified resolution, set status to 'Closed', added fix descriptions and retest results.
+   - Added Defects 3 through 9: Documented multi-file upload, catalog persistence, anti-hallucination owner mapping, blank PDF rejection, single project workspace binding, HTTP 409 conflict validation, and ground-truth agent precision fixes. All verified and Closed.
+   - Preserved remaining empty rows with intact borders and formatting.
+   - Total verified defects: 9, all Closed.
+
+C. Agile_Template_Milestone2.xlsx:
+   - Preserved all 4 worksheets: Product Backlog, Sprint Backlog, Stand up Meeting, Retrospection.
+   - Product Backlog:
+     * Updated Sprint 1 user stories (US-01 to US-06) status to '3- Completed'.
+     * Added 8 Sprint 2 user stories (US-07 to US-14) for multi-file upload, semantic retrieval, Scope agent, Risk agent, Blocker agent, UI simplification, regression testing, and persistent project workspace grouping (all marked '3- Completed').
+     * Added 3 Sprint 3 user stories (US-15 to US-17) for documentation generation, composite health score, and conversational assistant (marked '1- Not Started').
+     * Preserved data validations on Status and MOSCOW columns.
+   - Sprint Backlog:
+     * Updated Sprint 1 tasks (T-01 to T-06) to '3- Completed'.
+     * Added Sprint 2 section header and 12 realistic tasks (T-07 to T-18), properly sized between 2.5 and 4.0 hours, allocated across Days 1 to 5.
+     * Validated activity types against allowed dropdown values (Coding, Design, Integration Test, Regression Test, Others).
+     * Preserved dynamic sum formulas in Row 3 (=SUM(I5:I802)).
+   - Stand up Meeting:
+     * Updated Sprint 1 kick-off entry.
+     * Added Sprint 2 daily stand-up meeting entries (Days 1 to 5) recording genuine obstacles and actions taken.
+   - Retrospection:
+     * Updated Sprint 1 retrospective.
+     * Added Sprint 2 retrospective detailing Start Doing, Stop Doing, and Continue Doing items based on Milestone 2 engineering learnings.
+
+
+8. ASSUMPTIONS AND LIMITATIONS
+--------------------------------------------------------------------------------
+- Reference Project Date:
+  Deterministic schedule calculations and overdue date comparisons use a fixed reference date of October 28, 2026 (or document reporting date when explicitly declared).
+- Single Project Workspace Architecture:
+  The application is architected for one project workspace. All uploaded files belong to this project, cross-document retrieval operates within this project, and conflicting cross-project documents are strictly rejected.
+- Pure-Python Semantic Retrieval:
+  Retrieval currently relies on TF-IDF vector space modeling with cosine similarity and persistent JSON cataloging to avoid heavy native compilation dependencies on Windows Python 3.13.
+- LLM Service Fallback:
+  External LLM integration is optional and configured to gracefully fall back to the deterministic grounded extraction engine when API keys are absent.
+- Strict Anti-Hallucination Standard:
+  The agents do not interpolate or invent missing assignees, dates, or burn-down metrics; any missing attribute is strictly reported as UNKNOWN.
+================================================================================
