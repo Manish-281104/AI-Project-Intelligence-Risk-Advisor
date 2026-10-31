@@ -61,7 +61,7 @@ pytestdebug.log
 
 
 # ---------------------------------------------------------------------
-# 3. Node.js & Frontend (React + Vite + TypeScript)
+# 3. Node.js & Frontend
 # ---------------------------------------------------------------------
 
 node_modules/
@@ -86,7 +86,7 @@ pnpm-debug.log*
 
 
 # ---------------------------------------------------------------------
-# 4. Environment Variables & Secrets (CRITICAL SECURITY)
+# 4. Environment Variables & Secrets
 # ---------------------------------------------------------------------
 
 .env
@@ -102,8 +102,8 @@ credentials.json
 service-account.json
 client_secret*.json
 
-# Ignore LICENSE as explicitly requested
-LICENSE
+# Ignore LICENSE as requested
+/LICENSE
 
 
 # ---------------------------------------------------------------------
@@ -186,7 +186,6 @@ faiss_index/
 *.joblib
 *.safetensors
 
-# Ignore generated model cache directories
 model_cache/
 models/cache/
 
@@ -195,31 +194,73 @@ models/cache/
 # 10. Generated Reports & Temporary Exports
 # ---------------------------------------------------------------------
 
-*.log
-*.temp
-*.swp
-
-# Temporary generated exports
 exports/
 generated_temp/
 
 
 # ---------------------------------------------------------------------
 # 11. Milestone Documentation Folders
-# These folders must NOT be uploaded to GitHub.
-# They remain available locally.
 # ---------------------------------------------------------------------
 
-milestone1_deliverables/
-milestone2_deliverables/
-Milestone2_Updated_Documents/
+/milestone1_deliverables/
+/milestone2_deliverables/
+/Milestone2_Updated_Documents/
 
 
 # ---------------------------------------------------------------------
-# 12. Keep Required Source and Configuration Files
+# 12. Sample Documents
 # ---------------------------------------------------------------------
 
-# Keep environment example files
+/sample_documents/
+
+
+# ---------------------------------------------------------------------
+# 13. Root-Level Documentation Generation Scripts
+# ---------------------------------------------------------------------
+
+/build_milestone1_templates.py
+/build_milestone2_deliverables.py
+/build_milestone2_presentation.py
+/build_milestone2_updated_documents.py
+/build_presentation.py
+
+/update_root_templates.py
+/update_simplified_templates.py
+/validate_milestone2.py
+
+
+# ---------------------------------------------------------------------
+# 14. Optional Documentation Summary
+# ---------------------------------------------------------------------
+
+/Template_Update_Summary.md
+
+
+# ---------------------------------------------------------------------
+# 15. Additional Unnecessary Root-Level Files
+# ---------------------------------------------------------------------
+
+# Ignore generated documentation and presentation files
+/*.pdf
+/*.pptx
+/*.docx
+
+# Ignore temporary generated archives
+/*.zip
+
+
+# ---------------------------------------------------------------------
+# 16. Keep Important Project Files
+# ---------------------------------------------------------------------
+
+# Keep README
+!/README.md
+
+# Keep Documents folder and Excel templates
+!/Documents/
+!/Documents/**
+
+# Keep environment examples
 !.env.example
 
 # Keep dependency manifests
@@ -227,6 +268,6 @@ Milestone2_Updated_Documents/
 !package.json
 !package-lock.json
 
-# Keep sample documents
-!sample_documents/
-!sample_documents/**
+# Keep backend and frontend source code
+!/backend/
+!/frontend/
