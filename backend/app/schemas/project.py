@@ -107,6 +107,7 @@ class DocumentMetadata(BaseModel):
     chunk_count: int = Field(0, description="Total number of chunks produced")
     chunks: List[DocumentChunk] = Field(default_factory=list, description="List of generated text chunks")
     full_text: Optional[str] = Field(None, description="Clean full document text without chunk overlap")
+    content_hash: Optional[str] = Field(None, description="SHA-256 hash of document raw bytes")
     status: str = Field("processed", description="Document ingestion status")
     notes: str = Field(..., description="Processing and next milestone indexing notes")
 

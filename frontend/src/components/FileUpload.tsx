@@ -60,6 +60,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDocumentUploaded, onWo
   const [processedDocs, setProcessedDocs] = useState<DocumentMetadata[]>([]);
   const [workspace, setWorkspace] = useState<ProjectWorkspace | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [conflictError, setConflictError] = useState<{ message: string; stagedFiles: StagedFile[] } | null>(null);
   const [batchResults, setBatchResults] = useState<FileUploadResultItem[] | null>(null);
   const [expandedChunkIds, setExpandedChunkIds] = useState<Set<string>>(new Set());
@@ -199,11 +200,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDocumentUploaded, onWo
 
     setIsUploading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
     setConflictError(null);
     setBatchResults(null);
 
     try {
       const filesToSend = validItems.map((item) => item.file);
+      const wasIncremental = processedDocs.length > 0;
       const response = await uploadDocument(filesToSend);
 
       // Collect new DocumentMetadata from successful items
@@ -225,6 +228,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDocumentUploaded, onWo
           const newIds = new Set(newDocs.map((d) => d.document_id));
           return [...newDocs, ...prev.filter((d) => !newIds.has(d.document_id))];
         });
+        setSuccessMessage(
+          wasIncremental
+            ? `Successfully incrementally indexed ${newDocs.length} new document(s) into active workspace without disturbing existing knowledge base.`
+            : `Successfully uploaded and indexed ${newDocs.length} document(s).`
+        );
       }
 
       // Clear staged files on completion
@@ -461,6 +469,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDocumentUploaded, onWo
                 <span className="badge badge-success">
                   Single Knowledge Base
                 </span>
+                {processedDocs.length > 0 && (
+                  <span className="badge font-mono" style={{ backgroundColor: "rgba(59, 130, 246, 0.15)", color: "var(--accent-primary)", border: "1px solid rgba(59, 130, 246, 0.3)" }}>
+                    Incremental Mode Active
+                  </span>
+                )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap", marginTop: "0.35rem", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
                 {workspace?.client && (
@@ -643,13 +656,17 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDocumentUploaded, onWo
                 {isUploading ? (
                   <>
                     <RefreshCw size={16} className="spin-icon" />
-                    <span>Uploading & Processing {validStagedCount} Document{validStagedCount > 1 ? "s" : ""}...</span>
+                    <span>
+                      {processedDocs.length > 0 ? "Incrementally Indexing " : "Uploading & Processing "}
+                      {validStagedCount} Document{validStagedCount > 1 ? "s" : ""}...
+                    </span>
                   </>
                 ) : (
                   <>
                     <FileUp size={16} />
                     <span>
-                      Upload {validStagedCount > 0 ? `${validStagedCount} ` : ""}File{validStagedCount > 1 ? "s" : ""}
+                      {processedDocs.length > 0 ? "Incrementally Add & Index " : "Upload "}
+                      {validStagedCount > 0 ? `${validStagedCount} ` : ""}File{validStagedCount > 1 ? "s" : ""}
                     </span>
                   </>
                 )}
@@ -716,6 +733,37 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDocumentUploaded, onWo
                 Dismiss
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Global Success Banner */}
+        {successMessage && (
+          <div
+            className="success-banner"
+            style={{
+              backgroundColor: "rgba(16, 185, 129, 0.12)",
+              border: "1px solid var(--accent-emerald)",
+              borderRadius: "var(--radius-md)",
+              padding: "0.85rem 1.15rem",
+              margin: "1rem 0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "0.75rem",
+              color: "var(--accent-emerald)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <CheckCircle size={18} />
+              <span style={{ fontSize: "0.88rem", fontWeight: 500 }}>{successMessage}</span>
+            </div>
+            <button
+              onClick={() => setSuccessMessage(null)}
+              className="btn-dismiss"
+              style={{ color: "var(--text-muted)", cursor: "pointer", background: "none", border: "none", fontSize: "1rem" }}
+            >
+              ✕
+            </button>
           </div>
         )}
 

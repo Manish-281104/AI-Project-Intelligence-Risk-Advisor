@@ -41,9 +41,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="navbar-actions">
           {/* Quick anchor links */}
           <nav className="nav-links">
+            <a href="#dashboard" className="nav-link">Dashboard</a>
             <a href="#ingestion" className="nav-link">Documents</a>
             <a href="#ai-advisor" className="nav-link">Analysis</a>
-            <a href="#modules" className="nav-link">Modules</a>
             <a
               href={`${apiBaseUrl}/docs`}
               target="_blank"

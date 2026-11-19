@@ -233,10 +233,10 @@ Return a valid JSON object matching this schema:
                     source_references=[f"{first_src} (Primary Goal)"],
                 )
 
-        # Primary Goal extraction from Section 1: Project Profile / Project Overview / Executive Summary
+        # Primary Goal extraction from Section 1: Project Profile / Project Overview / Executive Summary / Project Purpose
         if not primary_goal:
             prof_match = re.search(
-                r"(?:1\.\s+(?:Project\s+Profile|Project\s+Overview|Executive\s+Summary|Project\s+Summary|Introduction)|Project\s+Profile|Project\s+Overview|Executive\s+Summary)[:\s]*\n*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*(?:2\.|\Z|##|Objectives))",
+                r"(?:1\.\s+(?:Project\s+Profile|Project\s+Overview|Executive\s+Summary|Project\s+Summary|Introduction)|Project\s+Profile|Project\s+Overview|Executive\s+Summary|Project\s+purpose|Purpose)[:\s]*\n*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*(?:2\.|\Z|##|Objectives))",
                 doc_text,
                 re.IGNORECASE,
             )
@@ -401,14 +401,65 @@ Return a valid JSON object matching this schema:
                         )
                         continue
 
+                # --- Inline Deliverables (e.g. DEL-01 – Requirements baseline – Owner: Arjun Mehta – Due: 12 October 2026 – Status: Completed.) ---
+                m_inline_deliv = re.search(
+                    r"([A-Z0-9_\-]*(?:DEL(?:IV)?|D)-\d+)\s*[-–—:]\s*(.+?)\s*[-–—]\s*Owner:\s*([^–—]+?)\s*[-–—]\s*Due:\s*([^–—]+?)\s*[-–—]\s*Status:\s*([^–—.\n]+)",
+                    clean_line,
+                    re.IGNORECASE,
+                )
+                if m_inline_deliv:
+                    d_id = m_inline_deliv.group(1).upper()
+                    d_name = m_inline_deliv.group(2).strip()
+                    d_owner = m_inline_deliv.group(3).strip()
+                    d_date = m_inline_deliv.group(4).strip()
+                    d_stat = m_inline_deliv.group(5).strip()
+                    d_key = d_id
+                    if d_key not in seen_deliverables:
+                        seen_deliverables.add(d_key)
+                        full_name = f"{d_id}: {d_name}"
+                        deliverables.append(
+                            Deliverable(
+                                deliverable_id=d_id,
+                                name=d_name,
+                                description=f"{d_name} (Owner: {d_owner}, Due: {d_date}, Status: {d_stat})",
+                                acceptance_criteria=None,
+                                milestone=None,
+                                target_date=d_date,
+                                owner=d_owner,
+                                status=d_stat,
+                                source_ref=citation_label,
+                            )
+                        )
+                        if d_owner and d_owner.upper() != "UNKNOWN":
+                            resp_key = f"{full_name}_{d_owner}".lower()
+                            if resp_key not in seen_responsibilities:
+                                seen_responsibilities.add(resp_key)
+                                responsibilities.append(
+                                    Responsibility(
+                                        task=full_name,
+                                        owner=d_owner,
+                                        role="Deliverable Owner",
+                                        source_ref=citation_label,
+                                    )
+                                )
+                        if d_date and d_date.upper() != "UNKNOWN":
+                            deadlines.append(
+                                ExplicitDeadline(
+                                    milestone_or_task=full_name,
+                                    due_date=d_date,
+                                    source_ref=citation_label,
+                                )
+                            )
+                    continue
+
                 # --- Table 2 / Plain text Deliverables ---
                 is_d = (
-                    bool(re.match(r"^D-\d+$", p0, re.IGNORECASE))
+                    bool(re.match(r"^(?:D|DEL)-\d+$", p0, re.IGNORECASE))
                     or any(k in ("deliverable", "deliverables", "deliverable name", "expected deliverable", "expected deliverables") for k in fields)
                     or bool(re.match(r"^(?:expected\s+)?deliverables?\s*:", clean_line, re.IGNORECASE))
                 ) and not bool(re.search(r"\bDEP-\d+\b", clean_line, re.IGNORECASE)) and "dependent task" not in fields
                 if is_d and not re.match(r"^(DEP|M|R|A|FR)-\d+$", p0, re.IGNORECASE):
-                    d_id = p0 if re.match(r"^D-\d+$", p0, re.IGNORECASE) else fields.get("id", "")
+                    d_id = p0 if re.match(r"^(?:D|DEL)-\d+$", p0, re.IGNORECASE) else fields.get("id", "")
                     d_name = ""
                     for k in ("deliverable", "deliverables", "deliverable name", "expected deliverable", "expected deliverables"):
                         if k in fields:

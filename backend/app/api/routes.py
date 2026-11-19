@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
-from fastapi import APIRouter, Request, HTTPException, Query, status
+from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Request, HTTPException, Query, Body, status
+from fastapi.responses import PlainTextResponse, Response
 
 from app.core.config import settings
 from app.schemas.project import (
@@ -20,10 +21,27 @@ from app.schemas.agent_models import (
     BlockerExtractionResponse,
     ComprehensiveAnalysisResponse,
 )
+from app.schemas.milestone3_models import (
+    DocumentationGenerationResponse,
+    UserStory,
+    RiskRegisterEntry,
+    ActionItemEntry,
+    ItemStatusUpdateRequest,
+    ProjectHealthResponse,
+    HealthSnapshot,
+    ChatRequest,
+    ChatResponse,
+    ConversationHistoryResponse,
+)
+from app.schemas.dashboard_models import ProjectDashboardSummary
 from app.services.document_service import document_service
 from app.services.scope_agent import scope_agent
 from app.services.risk_agent import risk_agent
 from app.services.blocker_agent import blocker_agent
+from app.services.docgen_agent import docgen_agent
+from app.services.health_scoring_service import health_scoring_service
+from app.services.chat_assistant_service import chat_assistant_service
+from app.services.dashboard_service import dashboard_service
 from starlette.datastructures import UploadFile
 
 router = APIRouter()
@@ -38,7 +56,7 @@ MODULES_REGISTRY: List[ModuleItem] = [
         description="Ingests heterogeneous project documents (PDF, DOCX, CSV, TXT), validates formats, and extracts text.",
         status="Partially Implemented",
         milestone="Milestone 1 Active",
-        notes="File upload, size validation, MIME checks, single-file upload enforcement, and text parsers for PDF, DOCX, CSV, TXT are implemented and verified. Vector embedding & catalog persistence operational in Milestone 2.",
+        notes="Multi-format document parsing (PDF, DOCX, CSV, TXT), RapidOCR fallback pipeline, batch staging, and file validation are verified.",
     ),
     ModuleItem(
         id=2,
@@ -48,7 +66,7 @@ MODULES_REGISTRY: List[ModuleItem] = [
         description="Semantic chunking, vector embeddings, and persistent similarity retrieval with project isolation.",
         status="Planned",
         milestone="Milestone 2",
-        notes="Semantic and lexical retrieval engine with TF-IDF vector embeddings, boundary-aware coordinate tracking (page/row/chunk), and persistent catalog.",
+        notes="Hybrid dense vector and TF-IDF lexical retrieval engine with coordinate citations (page/row/chunk) and persistent catalog.",
     ),
     ModuleItem(
         id=3,
@@ -58,7 +76,7 @@ MODULES_REGISTRY: List[ModuleItem] = [
         description="Extracts objectives, in-scope vs out-of-scope boundaries, milestones, and deliverables with citations.",
         status="Planned",
         milestone="Milestone 2",
-        notes="Multi-agent scope and deliverable extractor with Pydantic structured output validation and source citations.",
+        notes="Autonomous scope and deliverable extractor with Section 1 goal prioritization and grounded citations.",
     ),
     ModuleItem(
         id=4,
@@ -78,7 +96,7 @@ MODULES_REGISTRY: List[ModuleItem] = [
         description="Identifies blockers, dependencies, actionable tasks, designated assignees, and deadlines from minutes/retros.",
         status="Planned",
         milestone="Milestone 2",
-        notes="Agent extraction with fallback handling for unassigned tasks, missing deadlines, and cross-document deduplication.",
+        notes="Agent extraction with strict UNKNOWN mapping for unassigned tasks and missing deadlines.",
     ),
     ModuleItem(
         id=6,
@@ -88,7 +106,7 @@ MODULES_REGISTRY: List[ModuleItem] = [
         description="Automated synthesis of draft user stories, risk registers, and executive status summaries.",
         status="Planned",
         milestone="Milestone 3",
-        notes="Jinja2 and Markdown/DOCX templating engine with traceability links to ingested document chunks.",
+        notes="Synthesizes Agile user stories with Given-When-Then criteria, risk registers, and action items with review status and CSV export.",
     ),
     ModuleItem(
         id=7,
@@ -98,7 +116,7 @@ MODULES_REGISTRY: List[ModuleItem] = [
         description="Deterministic mathematical composite health score (0-100) reflecting schedule adherence and risk density.",
         status="Planned",
         milestone="Milestone 3",
-        notes="Formula-driven, reproducible scoring model without synthetic or fabricated values.",
+        notes="Deterministic mathematical model across Scope Clarity (35%), Timeline Health (35%), and Blocker Health (30%) with persistent history.",
     ),
     ModuleItem(
         id=8,
@@ -108,7 +126,7 @@ MODULES_REGISTRY: List[ModuleItem] = [
         description="Project Q&A chat assistant with strict groundedness constraints and explicit document page/row citations.",
         status="Planned",
         milestone="Milestone 3",
-        notes="Chat API with memory management and fallback to 'cannot find evidence in uploaded documents'.",
+        notes="Grounded conversational assistant with project-isolated RAG retrieval, citations, and anti-hallucination guardrails.",
     ),
     ModuleItem(
         id=9,
@@ -118,7 +136,7 @@ MODULES_REGISTRY: List[ModuleItem] = [
         description="React + TypeScript dashboard displaying live health, module status, document ingestion lab, and multi-agent findings.",
         status="Partially Implemented",
         milestone="Milestone 1 Active",
-        notes="React + TypeScript dashboard with multi-agent results viewer for Scope, Risks, and Blockers.",
+        notes="Complete interactive dashboard integrating Ingestion, Multi-Agent Intelligence, Document Generation, Health Scoring, and Conversational Assistant.",
     ),
 ]
 
@@ -139,8 +157,8 @@ async def get_health():
         environment="development",
         timestamp=now_iso,
         storage_ready=storage_ok,
-        ai_pipeline_status="active in Milestone 2 (previously planned in Milestone 1)",
-        message="Backend API is running. Multi-agent AI advisory pipeline and document ingestion services are active.",
+        ai_pipeline_status="active in Milestone 3 (previously planned in Milestone 1)",
+        message="Backend API is running. Multi-agent AI advisory pipeline, documentation generation, health scoring, and conversational assistant are active.",
     )
 
 
@@ -442,3 +460,243 @@ async def run_comprehensive_analysis(document_id: Optional[str] = Query(None, de
         risks=risk_res,
         blockers=blocker_res,
     )
+
+
+# =====================================================================
+# Milestone 3 Documentation Generation Endpoints
+# =====================================================================
+
+@router.post(
+    "/agents/generate-docs",
+    response_model=DocumentationGenerationResponse,
+    tags=["Documentation Generation"],
+)
+async def generate_documentation(
+    document_id: Optional[str] = Query(None, description="Optional document ID filter"),
+    force: bool = Query(False, description="Force re-generation"),
+):
+    """
+    Synthesize complete project documentation: User Stories with Given-When-Then criteria,
+    Risk Register, and Action Items grounded in project documents.
+    """
+    return await docgen_agent.generate_documentation(document_id=document_id, force_regenerate=force)
+
+
+@router.post(
+    "/agents/generate-user-stories",
+    response_model=List[UserStory],
+    tags=["Documentation Generation"],
+)
+async def generate_user_stories(
+    document_id: Optional[str] = Query(None, description="Optional document ID filter"),
+    force: bool = Query(False, description="Force re-generation"),
+):
+    """Generate or retrieve synthesized Agile user stories."""
+    docs = await docgen_agent.generate_documentation(document_id=document_id, force_regenerate=force)
+    return docs.user_stories
+
+
+@router.post(
+    "/agents/generate-risk-register",
+    response_model=List[RiskRegisterEntry],
+    tags=["Documentation Generation"],
+)
+async def generate_risk_register(
+    document_id: Optional[str] = Query(None, description="Optional document ID filter"),
+    force: bool = Query(False, description="Force re-generation"),
+):
+    """Generate or retrieve structured project risk register."""
+    docs = await docgen_agent.generate_documentation(document_id=document_id, force_regenerate=force)
+    return docs.risk_register
+
+
+@router.post(
+    "/agents/generate-action-items",
+    response_model=List[ActionItemEntry],
+    tags=["Documentation Generation"],
+)
+async def generate_action_items(
+    document_id: Optional[str] = Query(None, description="Optional document ID filter"),
+    force: bool = Query(False, description="Force re-generation"),
+):
+    """Generate or retrieve structured actionable tasks and decision follow-ups."""
+    docs = await docgen_agent.generate_documentation(document_id=document_id, force_regenerate=force)
+    return docs.action_items
+
+
+@router.get(
+    "/agents/documentation",
+    response_model=DocumentationGenerationResponse,
+    tags=["Documentation Generation"],
+)
+async def get_current_documentation():
+    """Retrieve existing synthesized documentation for active project workspace."""
+    return await docgen_agent.generate_documentation(force_regenerate=False)
+
+
+@router.post(
+    "/agents/doc-item/update",
+    status_code=status.HTTP_200_OK,
+    tags=["Documentation Generation"],
+)
+async def update_doc_item_review(req: ItemStatusUpdateRequest):
+    """
+    Approve, reject, or edit generated user story, risk entry, or action item.
+    """
+    success = docgen_agent.update_item_review(
+        item_type=req.item_type,
+        item_id=req.item_id,
+        review_status=req.review_status,
+        edited_fields=req.edited_fields,
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Item '{req.item_id}' of type '{req.item_type}' not found in active project store.",
+        )
+    return {"success": True, "message": f"Item '{req.item_id}' updated to '{req.review_status}'."}
+
+
+@router.get(
+    "/agents/export-docs",
+    tags=["Documentation Generation"],
+)
+async def export_documentation(
+    export_type: str = Query("user_stories", description="'user_stories', 'risk_register', or 'action_items'"),
+    format: str = Query("csv", description="Export format: 'csv'"),
+):
+    """Export generated project documentation as downloadable CSV."""
+    if export_type == "user_stories":
+        content = docgen_agent.export_user_stories_csv()
+        filename = "User_Stories.csv"
+    elif export_type == "risk_register":
+        content = docgen_agent.export_risk_register_csv()
+        filename = "Risk_Register.csv"
+    elif export_type == "action_items":
+        content = docgen_agent.export_action_items_csv()
+        filename = "Action_Items.csv"
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported export type '{export_type}'. Choose 'user_stories', 'risk_register', or 'action_items'.",
+        )
+
+    return Response(
+        content=content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+# =====================================================================
+# Milestone 3 Project Health Scoring Endpoints
+# =====================================================================
+
+@router.post(
+    "/health-score",
+    response_model=ProjectHealthResponse,
+    tags=["Project Health Scoring"],
+)
+async def calculate_project_health(
+    document_id: Optional[str] = Query(None, description="Optional document ID filter"),
+    weights: Optional[Dict[str, float]] = Body(None, description="Optional custom dimension weights"),
+):
+    """
+    Calculate deterministic project health score (0-100) across Scope Clarity (35%),
+    Timeline Health (35%), and Blocker Health (30%).
+    """
+    return await health_scoring_service.calculate_health(document_id=document_id, weights=weights)
+
+
+@router.get(
+    "/health-score",
+    response_model=ProjectHealthResponse,
+    tags=["Project Health Scoring"],
+)
+async def get_project_health():
+    """Retrieve current calculated project health score and dimensional breakdown."""
+    return await health_scoring_service.calculate_health()
+
+
+@router.get(
+    "/health-score/history",
+    response_model=List[HealthSnapshot],
+    tags=["Project Health Scoring"],
+)
+async def get_health_score_history():
+    """Retrieve historical health score snapshots recorded for active project."""
+    return health_scoring_service.get_history()
+
+
+# =====================================================================
+# Milestone 3 Conversational Project Intelligence Assistant Endpoints
+# =====================================================================
+
+@router.post(
+    "/assistant/chat",
+    response_model=ChatResponse,
+    tags=["Conversational Assistant"],
+)
+async def chat_with_assistant(req: ChatRequest):
+    """
+    Submit a natural language question about the project.
+    Retrieves evidence from active project chunks, generates grounded answer with citations,
+    and returns contextual follow-up questions.
+    """
+    return await chat_assistant_service.answer_question(req)
+
+
+@router.get(
+    "/assistant/history",
+    response_model=ConversationHistoryResponse,
+    tags=["Conversational Assistant"],
+)
+async def get_assistant_conversation_history(
+    conversation_id: Optional[str] = Query(None, description="Optional conversation session ID"),
+):
+    """Retrieve dialogue history for the active project workspace."""
+    return chat_assistant_service.get_conversation_history(conversation_id=conversation_id)
+
+
+@router.post(
+    "/assistant/clear",
+    tags=["Conversational Assistant"],
+)
+@router.delete(
+    "/assistant/clear",
+    tags=["Conversational Assistant"],
+)
+async def clear_assistant_conversation(
+    conversation_id: Optional[str] = Query(None, description="Optional conversation session ID"),
+):
+    """Clear conversation history for the active project workspace."""
+    success = chat_assistant_service.clear_conversation(conversation_id=conversation_id)
+    return {"success": True, "message": "Conversation history cleared."}
+
+
+# =====================================================================
+# Milestone 4 Project Insights & Risk Summary Dashboard Endpoints
+# =====================================================================
+
+@router.get(
+    "/dashboard/summary",
+    response_model=ProjectDashboardSummary,
+    tags=["Project Insights Dashboard"],
+)
+@router.get(
+    "/dashboard/insights",
+    response_model=ProjectDashboardSummary,
+    tags=["Project Insights Dashboard"],
+)
+async def get_dashboard_summary(
+    document_id: Optional[str] = Query(None, description="Optional document ID filter"),
+):
+    """
+    Retrieve consolidated project intelligence for the Milestone 4
+    Project Insights & Risk Summary Dashboard.
+    Provides live project health, extracted risks, action items, scope summary,
+    blockers, and progress tracking derived strictly from uploaded documents.
+    """
+    return await dashboard_service.get_dashboard_summary(document_id=document_id)
+
+

@@ -4,6 +4,7 @@ import csv
 import io
 import re
 import uuid
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Tuple, Dict, Any, List, Optional
@@ -17,6 +18,12 @@ from app.services.chunker import text_chunker, TextChunker
 from app.services.vector_store import vector_store
 from app.services.ocr_service import ocr_service
 
+REGISTERED_PROJECT_ALIASES: Dict[str, str] = {
+    "CLMS": "Community Library Management System",
+    "SCSP": "Smart Campus Service Portal",
+    "CEMP": "Campus Event Management Portal",
+    "LIB": "Community Library Management System",
+}
 
 
 class DocumentService:
@@ -211,13 +218,14 @@ class DocumentService:
             doc = self.get_document(document_id)
             if not doc:
                 return []
-            if project_id and doc.project_id != target_pid:
+            if target_pid and doc.project_id != target_pid:
                 return []
             raw_chunks = doc.chunks
         else:
             for doc in self._documents.values():
-                if not project_id or doc.project_id == target_pid:
-                    raw_chunks.extend(doc.chunks)
+                if target_pid and doc.project_id != target_pid:
+                    continue
+                raw_chunks.extend(doc.chunks)
 
         if not include_evaluator:
             return [c for c in raw_chunks if not getattr(c, "is_evaluator_guidance", False)]
@@ -238,18 +246,49 @@ class DocumentService:
             return True
         if norm1 == norm2 or norm1 in norm2 or norm2 in norm1:
             return True
-        # Check abbreviation / acronym: e.g. "cemp" in "campus event management portal"
+
+        # Check registered aliases
+        for alias, full in REGISTERED_PROJECT_ALIASES.items():
+            a_norm = cls._normalize_name(alias)
+            f_norm = cls._normalize_name(full)
+            if (norm1 == a_norm and f_norm in norm2) or (norm2 == a_norm and f_norm in norm1):
+                return True
+            if (norm1 == f_norm and a_norm in norm2) or (norm2 == f_norm and a_norm in norm1):
+                return True
+
+        # Check acronyms
         words1 = [w for w in norm1.split() if w]
         words2 = [w for w in norm2.split() if w]
-        if words1 and norm2 == "".join(w[0] for w in words1):
+        acronym1 = "".join(w[0] for w in words1)
+        acronym2 = "".join(w[0] for w in words2)
+        if acronym1 and (norm2 == acronym1 or acronym1 in norm2):
             return True
-        if words2 and norm1 == "".join(w[0] for w in words2):
+        if acronym2 and (norm1 == acronym2 or acronym2 in norm1):
             return True
+
+        # Check significant domain keyword overlap
+        generic_words = {
+            "portal", "system", "platform", "application", "manager", "dashboard", "tool",
+            "project", "service", "engine", "tracker", "overview", "charter", "requirements",
+            "meeting", "notes", "minutes", "deliverables", "status", "report", "specification",
+            "management", "app", "and", "the", "for", "with"
+        }
+        domain_tokens1 = {w for w in words1 if w not in generic_words and not w.isdigit()}
+        domain_tokens2 = {w for w in words2 if w not in generic_words and not w.isdigit()}
+
+        if domain_tokens1 and domain_tokens2 and (domain_tokens1 & domain_tokens2):
+            return True
+
         return False
 
     def extract_project_identity(self, text: str, filename: str) -> Dict[str, Optional[str]]:
         """
         Extract explicit project name, project ID, and client/sponsor from document text and filename.
+        Uses priority:
+        1. Explicit Project ID inside document content.
+        2. Explicit Project Name inside document content.
+        3. Existing project metadata and registered aliases.
+        4. Document title and filename as supporting evidence.
         """
         found_name: Optional[str] = None
         found_id: Optional[str] = None
@@ -257,7 +296,10 @@ class DocumentService:
 
         lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
 
-        # 1. Project ID (must be formatted as key: value, supporting table row format)
+        # -----------------------------------------------------------------
+        # PRIORITY 1: Explicit Project ID inside document content or filename
+        # -----------------------------------------------------------------
+        # 1.1 Match key-value in text or table row: Project ID: XYZ
         id_match = re.search(
             r"(?:^|\n|\|)\s*(?:Project\s*field\s*:\s*)?(?:Project\s*ID|Project-ID|Proj\s*ID)(?:\s*\|\s*Value)?\s*[:=\|]\s*([A-Za-z0-9\-_]+)",
             text,
@@ -268,7 +310,23 @@ class DocumentService:
             if cand_id.lower() not in ("tbd", "unknown", "none"):
                 found_id = cand_id
 
-        # 2. Client / Sponsor (must be formatted as key: value, supporting table row format)
+        # 1.2 Match explicit ID code in first 10 lines: e.g. "Project ID: SCSP-2026-104 | Version 1.0"
+        if not found_id:
+            for l in lines[:10]:
+                m_code = re.search(r"\b(?:Project\s*ID\s*[:=\|]\s*)?([A-Z]{2,6}-\d{4}-\d{2,4})\b", l, re.IGNORECASE)
+                if m_code:
+                    found_id = m_code.group(1).strip()
+                    break
+
+        # 1.3 Check filename for explicit project ID code: e.g. "01_Project_Charter_SCSP-2026-104.docx"
+        if not found_id:
+            fn_id_match = re.search(r"\b([A-Z]{2,6}-\d{4}-\d{2,4})\b", filename)
+            if fn_id_match:
+                found_id = fn_id_match.group(1).strip()
+
+        # -----------------------------------------------------------------
+        # PRIORITY 2: Client / Sponsor
+        # -----------------------------------------------------------------
         client_match = re.search(
             r"(?:^|\n|\|)\s*(?:Project\s*field\s*:\s*)?(?:Project\s*Sponsor|Client|Customer|Sponsor)(?:\s*\|\s*Value)?\s*[:=\|]\s*([^\n\r\|]+)",
             text,
@@ -276,14 +334,16 @@ class DocumentService:
         )
         if client_match:
             cand_client = client_match.group(1).strip(" .-_|")
-            # Ensure not a narrative statement like "The sponsor has not confirmed..."
             is_narrative = bool(
                 re.search(r"\b(has|have|had|not|will|is|was|confirmed|required|agreed|discussed|open question)\b", cand_client, re.IGNORECASE)
             )
             if cand_client and len(cand_client) > 2 and not is_narrative and cand_client.lower() not in ("tbd", "unknown", "none"):
                 found_client = cand_client
 
-        # 3. Project Name (must be formatted as key: value, supporting table row format)
+        # -----------------------------------------------------------------
+        # PRIORITY 3: Explicit Project Name inside document content
+        # -----------------------------------------------------------------
+        # 3.1 Key-value pattern: Project Name: XYZ or System Name: XYZ
         name_match = re.search(
             r"(?:^|\n|\|)\s*(?:Project\s*field\s*:\s*)?(?:Project\s*Name|System\s*Name|Project\s*Title)(?:\s*\|\s*Value)?\s*[:=\|]\s*([^\n\r\|]+)",
             text,
@@ -294,37 +354,91 @@ class DocumentService:
             if cand_name and len(cand_name) > 3 and cand_name.lower() not in ("tbd", "unknown", "none"):
                 found_name = cand_name
 
-        # If not found via key-value, check early lines (headers / title)
+        # 3.2 Header pattern: Project: Smart Campus Service Portal | Project ID: SCSP-2026-104
         if not found_name:
+            hdr_match = re.search(r"Project:\s*([^|\n]+?)\s*\|\s*Project ID:", text, re.IGNORECASE)
+            if hdr_match:
+                cand_hdr = hdr_match.group(1).strip(" .-_|")
+                if len(cand_hdr) > 3:
+                    found_name = cand_hdr
+
+        # 3.3 Early lines scan (headers / title)
+        if not found_name:
+            doc_category_patterns = [
+                r"functional\s+requirements", r"requirements\s+specification", r"requirements\s+and\s+acceptance",
+                r"requirements", r"software\s+requirements", r"srs", r"project\s+meeting\s+notes", r"meeting\s+notes",
+                r"meeting\s+minutes\s+and\s+blockers", r"weekly\s+project\s+meeting", r"meeting\s+minutes", r"minutes",
+                r"deliverables\s+and\s+status", r"deliverables\s+status", r"status\s+and\s+deliverables", r"status\s+report",
+                r"progress\s+and\s+raid\s+report", r"progress\s+and\s+risk\s+report", r"progress\s+report",
+                r"project\s+overview", r"project\s+charter", r"architecture\s+risks", r"sprint\s+tasks", r"test\s+document"
+            ]
             for line in lines[:8]:
                 clean_l = re.sub(r"^#+\s*", "", line).strip()
-                if re.match(r"^(?:Sample\s+Project\s+Test\s+Document|Test\s+Fixture|Table\s+\d+|ID\s*\|)", clean_l, re.IGNORECASE):
+                if re.match(r"^(?:Sample\s+Project|Test\s+Fixture|Table\s+\d+|ID\s*\||PROJECT\s+TEST\s+DOCUMENT|Purpose|Objectives|Attendees)", clean_l, re.IGNORECASE):
                     continue
-                if re.search(r"\b(?:Portal|System|Platform|Application|Manager|Dashboard|Tool)\b", clean_l, re.IGNORECASE):
-                    if len(clean_l) < 80 and not re.search(r"Overview|Section|Chapter|Table|Status", clean_l, re.IGNORECASE):
-                        # Strip document type suffixes like "- Meeting Notes", "- Progress Update"
-                        clean_l = re.sub(r"\s*-\s*(?:Meeting\s+Notes|Progress\s+Update|Status\s+Report|SRS|Requirements).*", "", clean_l, flags=re.IGNORECASE).strip()
-                        found_name = clean_l
+                # If the line matches an exact registered project name
+                for alias_k, full_pname in REGISTERED_PROJECT_ALIASES.items():
+                    if full_pname.lower() in clean_l.lower():
+                        found_name = full_pname
                         break
+                    # If line starts with registered acronym (e.g. "CLMS Functional Requirements")
+                    if re.match(rf"^{alias_k}\b", clean_l, re.IGNORECASE):
+                        found_name = full_pname
+                        break
+                if found_name:
+                    break
 
-        # Check filename if it explicitly designates a distinct project
-        fn_base = Path(filename).stem
-        clean_fn = re.sub(r"[_\-]+", " ", fn_base).strip()
-        is_generic_fn = bool(
-            re.search(
-                r"^(?:meeting[-_ ]notes|sprint[-_ ]tasks|progress[-_ ]update|requirements|architecture|sync[-_ ]notes|charter|document|sample|spec|test|notes|charter[-_ ]single)",
-                clean_fn,
-                re.IGNORECASE,
+                # Check general system/portal title
+                if re.search(r"\b(?:Portal|System|Platform|Application|Manager|Dashboard|Tool)\b", clean_l, re.IGNORECASE):
+                    if len(clean_l) < 80 and not re.search(r"Overview|Section|Chapter|Table|Status|Acceptance|Purpose|Meeting", clean_l, re.IGNORECASE):
+                        # Clean off document category suffixes
+                        for cat in doc_category_patterns:
+                            clean_l = re.sub(rf"\s*[-–:]*\s*{cat}.*", "", clean_l, flags=re.IGNORECASE).strip()
+                        if len(clean_l) > 3:
+                            found_name = clean_l
+                            break
+
+        # -----------------------------------------------------------------
+        # PRIORITY 4: Resolve via Registered Aliases & Existing Workspace Metadata
+        # -----------------------------------------------------------------
+        if found_id and not found_name:
+            for alias_k, full_pname in REGISTERED_PROJECT_ALIASES.items():
+                if found_id.upper().startswith(alias_k):
+                    found_name = full_pname
+                    break
+
+        # -----------------------------------------------------------------
+        # PRIORITY 5: Filename supporting evidence (NEVER classify a category as project name)
+        # -----------------------------------------------------------------
+        if not found_name:
+            fn_base = Path(filename).stem
+            # Strip leading numbering like "01_", "02_", "03 "
+            clean_fn = re.sub(r"^\d+[\s_\-]+", "", fn_base).strip()
+            clean_fn = re.sub(r"[_\-]+", " ", clean_fn).strip()
+
+            # Check if filename contains an alias acronym (e.g. SCSP, CLMS, CEMP)
+            for alias_k, full_pname in REGISTERED_PROJECT_ALIASES.items():
+                if re.search(rf"\b{alias_k}\b", clean_fn, re.IGNORECASE):
+                    found_name = full_pname
+                    break
+
+            is_purely_category = bool(
+                re.search(
+                    r"^(?:meeting[-_ ]notes|sprint[-_ ]tasks|progress[-_ ]update|requirements|architecture|sync[-_ ]notes|charter|document|sample|spec|test|notes|overview|deliverables|status)",
+                    clean_fn,
+                    re.IGNORECASE,
+                )
             )
-        )
-        if not found_name and not is_generic_fn and len(clean_fn) > 3:
-            if re.search(
-                r"\b(?:Portal|System|Platform|Application|Manager|Dashboard|Tool|App|Project|Service|Engine|Tracker|ICU|Hospital|Flight|Banking|Ecommerce|Inventory|Hotel|Library|Lab|Analytics)\b",
-                clean_fn,
-                re.IGNORECASE,
-            ):
-                found_name = clean_fn
-
+            # If still not found and not a generic category filename, only accept if it contains a major project noun
+            if not found_name and not is_purely_category and len(clean_fn) > 3:
+                # Strip category words from end of filename: e.g. "Library Requirements" -> "Library"
+                stripped_fn = re.sub(r"\s*(?:Requirements|Meeting\s*Notes|Deliverables\s*Status|Status|Overview|Charter).*", "", clean_fn, flags=re.IGNORECASE).strip()
+                if re.search(
+                    r"\b(?:Portal|System|Platform|Application|Manager|Dashboard|Tool|Hospital|Flight|Banking|Ecommerce|Inventory|Hotel)\b",
+                    stripped_fn,
+                    re.IGNORECASE,
+                ):
+                    found_name = stripped_fn
 
         return {
             "project_name": found_name,
@@ -362,17 +476,22 @@ class DocumentService:
             )
 
         conflicts = []
-        # Check Project ID Conflict
-        if ext_id and ws.project_id != "proj_workspace_default" and ext_id != ws.project_id:
-            conflicts.append(f"Project ID '{ext_id}' which conflicts with workspace Project ID '{ws.project_id}'")
+        # Check Project ID Conflict:
+        # If ext_id matches ws.project_id, it is definitively the SAME project!
+        is_same_project_id = False
+        if ext_id and ws.project_id != "proj_workspace_default":
+            if ext_id == ws.project_id:
+                is_same_project_id = True
+            else:
+                conflicts.append(f"Project ID '{ext_id}' which conflicts with workspace Project ID '{ws.project_id}'")
 
-        # Check Project Name Conflict
-        if ext_name and ws.project_name:
+        # Check Project Name Conflict (only if not already verified by matching Project ID)
+        if ext_name and ws.project_name and not is_same_project_id:
             if not self._are_names_compatible(ext_name, ws.project_name):
                 conflicts.append(f"project '{ext_name}' which conflicts with workspace project '{ws.project_name}'")
 
-        # Check Client / Sponsor Conflict
-        if ext_client and ws.client:
+        # Check Client / Sponsor Conflict (only if not already verified by matching Project ID)
+        if ext_client and ws.client and not is_same_project_id:
             if not self._are_names_compatible(ext_client, ws.client):
                 conflicts.append(f"client/sponsor '{ext_client}' which conflicts with workspace client '{ws.client}'")
 
@@ -600,14 +719,16 @@ class DocumentService:
                 if not table.rows:
                     continue
                 
-                # Extract rows with merged cell deduplication
+                # Extract rows with genuine merged cell deduplication using underlying XML elements
                 table_matrix = []
                 for row in table.rows:
                     seen_cells = []
+                    seen_tcs = set()
                     for cell in row.cells:
-                        txt = cell.text.strip()
-                        if not seen_cells or txt != seen_cells[-1]:
-                            seen_cells.append(txt)
+                        if cell._tc in seen_tcs:
+                            continue
+                        seen_tcs.add(cell._tc)
+                        seen_cells.append(cell.text.strip())
                     table_matrix.append(seen_cells)
                 
                 if not table_matrix:
@@ -630,6 +751,8 @@ class DocumentService:
                                 col_header = headers[c_idx] if c_idx < len(headers) else f"Col {c_idx+1}"
                                 row_parts.append(f"{col_header}: {cell_text}")
                         row_line = " | ".join(row_parts)
+                    elif has_headers and r_idx == 1:
+                        row_line = "[Table Header] " + " | ".join(non_empty)
                     else:
                         row_line = " | ".join(non_empty)
 
@@ -808,16 +931,10 @@ class DocumentService:
     ) -> DocumentMetadata:
         """
         Process document bytes directly with validation, parsing, chunking, and vector indexing.
+        Prevents duplicate documents using SHA-256 content hashing and handles re-uploads cleanly.
         """
         sanitized_filename, ext = self.validate_file_basics(filename, raw_bytes)
-
-        # Generate unique document ID
-        doc_id = f"doc_{uuid.uuid4().hex[:12]}"
-
-        # Save to disk in designated local uploads directory
-        save_name = f"{doc_id}_{sanitized_filename}"
-        dest_path = self.upload_dir / save_name
-        dest_path.write_bytes(raw_bytes)
+        content_hash = hashlib.sha256(raw_bytes).hexdigest()
 
         # Dispatch to format-specific parser
         if ext == ".pdf":
@@ -841,6 +958,29 @@ class DocumentService:
         proj_id, proj_name, client_name, is_inherited = self.validate_project_consistency(
             full_text, sanitized_filename
         )
+
+        # Check for existing document in workspace with same filename or identical content hash
+        existing_doc = next(
+            (
+                d for d in self._documents.values()
+                if d.project_id == proj_id and (
+                    d.filename == sanitized_filename
+                    or (getattr(d, "content_hash", None) and d.content_hash == content_hash)
+                )
+            ),
+            None,
+        )
+
+        if existing_doc:
+            doc_id = existing_doc.document_id
+            vector_store.delete_document(doc_id)
+        else:
+            doc_id = f"doc_{uuid.uuid4().hex[:12]}"
+
+        # Save to disk in designated local uploads directory
+        save_name = f"{doc_id}_{sanitized_filename}"
+        dest_path = self.upload_dir / save_name
+        dest_path.write_bytes(raw_bytes)
 
         # Chunk the extracted text blocks with unified project workspace ID
         chunks = self.chunker.create_chunks_from_blocks(
@@ -899,6 +1039,7 @@ class DocumentService:
             chunk_count=len(chunks),
             chunks=chunks,
             full_text=full_text,
+            content_hash=content_hash,
             status="processed",
             notes=notes,
         )

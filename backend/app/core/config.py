@@ -13,7 +13,7 @@ class Settings:
 
     BASE_DIR: Path = BASE_DIR
     APP_NAME: str = os.getenv("APP_NAME", "AI Project Intelligence & Risk Advisor API")
-    APP_VERSION: str = os.getenv("APP_VERSION", "0.2.0 (Milestone 2)")
+    APP_VERSION: str = os.getenv("APP_VERSION", "0.3.0 (Milestone 3)")
     DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
 
     HOST: str = os.getenv("HOST", "127.0.0.1")

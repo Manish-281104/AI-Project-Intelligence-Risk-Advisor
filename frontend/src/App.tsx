@@ -1,24 +1,23 @@
 import { useState, useEffect } from "react";
 import {
   checkHealth,
-  getModules,
   HealthResponse,
-  ModuleItem,
   API_BASE_URL,
 } from "./services/api";
 import { Navbar } from "./components/Navbar";
 import { FileUpload } from "./components/FileUpload";
+import { ProjectInsightsDashboardView } from "./components/ProjectInsightsDashboardView";
 import { AgentAnalysisView } from "./components/AgentAnalysisView";
-import { ModuleCard } from "./components/ModuleCard";
-import { Cpu, Layers } from "lucide-react";
+import { DocumentationGenerationView } from "./components/DocumentationGenerationView";
+import { ProjectHealthView } from "./components/ProjectHealthView";
+import { ConversationalAssistantView } from "./components/ConversationalAssistantView";
+import { TopNavigation } from "./components/TopNavigation";
 
 export function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [modules, setModules] = useState<ModuleItem[]>([]);
   const [loadingHealth, setLoadingHealth] = useState<boolean>(true);
-  const [loadingModules, setLoadingModules] = useState<boolean>(true);
   const [healthError, setHealthError] = useState<string | null>(null);
-  const [moduleFilter, setModuleFilter] = useState<"all" | "active" | "planned">("all");
+  const [dashboardTab, setDashboardTab] = useState<"all" | "dashboard" | "ingest" | "agents" | "docgen" | "health" | "chat">("all");
   const [workspaceVersion, setWorkspaceVersion] = useState<number>(0);
 
   const fetchHealthData = async () => {
@@ -39,28 +38,9 @@ export function App() {
     }
   };
 
-  const fetchModulesData = async () => {
-    setLoadingModules(true);
-    try {
-      const data = await getModules();
-      setModules(data.modules);
-    } catch {
-      setModules([]);
-    } finally {
-      setLoadingModules(false);
-    }
-  };
-
   useEffect(() => {
     fetchHealthData();
-    fetchModulesData();
   }, []);
-
-  const filteredModules = modules.filter((m) => {
-    if (moduleFilter === "active") return m.status === "Partially Implemented" || m.status === "Implemented and Verified";
-    if (moduleFilter === "planned") return m.status === "Planned";
-    return true;
-  });
 
   return (
     <div className="app-layout">
@@ -71,7 +51,6 @@ export function App() {
         error={healthError}
         onRefresh={() => {
           fetchHealthData();
-          fetchModulesData();
         }}
         apiBaseUrl={API_BASE_URL}
       />
@@ -82,10 +61,6 @@ export function App() {
         <section className="hero-section">
           <div className="hero-content">
             <div className="hero-badge-wrap">
-              <span className="badge badge-hero">
-                <Cpu size={14} />
-                Autonomous Project Intelligence
-              </span>
             </div>
             <h1 className="hero-title">
               AI Project Intelligence &<br />
@@ -94,8 +69,16 @@ export function App() {
 
             <div className="hero-stats-row">
               <div className="stat-pill active">
-                <span className="stat-number">3</span>
-                <span className="stat-label">AI Agents (Scope, Risks, Blockers)</span>
+                <span className="stat-number">4</span>
+                <span className="stat-label">AI Agents (Scope, Risks, Blockers, DocGen)</span>
+              </div>
+              <div className="stat-pill active">
+                <span className="stat-number">100%</span>
+                <span className="stat-label">Deterministic Health Scoring (0–100)</span>
+              </div>
+              <div className="stat-pill active">
+                <span className="stat-number">RAG</span>
+                <span className="stat-label">Conversational Assistant with Citations</span>
               </div>
               <div className="stat-pill active">
                 <span className="stat-number">4</span>
@@ -105,76 +88,66 @@ export function App() {
           </div>
         </section>
 
-        {/* Document Ingestion Component */}
-        <section className="section-wrapper">
-          <FileUpload onWorkspaceChanged={() => setWorkspaceVersion((v) => v + 1)} />
-        </section>
+        {/* Modern Enterprise SaaS Primary Navigation Bar */}
+        <TopNavigation
+          activeTab={dashboardTab}
+          onSelectTab={(tab) => setDashboardTab(tab)}
+        />
 
-        {/* Autonomous Agent Analysis View */}
-        <section className="section-wrapper">
-          <AgentAnalysisView workspaceVersion={workspaceVersion} />
-        </section>
+        {/* SECTION: Milestone 4 Executive Project Insights & Risk Summary Dashboard */}
+        {(dashboardTab === "all" || dashboardTab === "dashboard") && (
+          <section className="section-wrapper" id="dashboard">
+            <ProjectInsightsDashboardView
+              workspaceVersion={workspaceVersion}
+              onNavigateToTab={(tab) => setDashboardTab(tab)}
+              onNavigateToIngest={() => setDashboardTab("ingest")}
+              onWorkspaceChanged={() => setWorkspaceVersion((v) => v + 1)}
+            />
+          </section>
+        )}
 
-        {/* Modules Section */}
-        <section className="section-wrapper" id="modules">
-          <div className="modules-header-row">
-            <div>
-              <span className="section-eyebrow">System Architecture</span>
-              <h2 className="section-title">Core System Modules</h2>
-              <p className="section-desc">
-                Current operational status of system capabilities and planned features.
-              </p>
-            </div>
+        {/* SECTION 1: Document Ingestion Component */}
+        {(dashboardTab === "all" || dashboardTab === "ingest") && (
+          <section className="section-wrapper" id="ingestion">
+            <FileUpload onWorkspaceChanged={() => setWorkspaceVersion((v) => v + 1)} />
+          </section>
+        )}
 
-            {/* Filter Buttons */}
-            <div className="filter-button-group">
-              <button
-                className={`btn-filter ${moduleFilter === "all" ? "active" : ""}`}
-                onClick={() => setModuleFilter("all")}
-              >
-                All Modules ({modules.length})
-              </button>
-              <button
-                className={`btn-filter ${moduleFilter === "active" ? "active" : ""}`}
-                onClick={() => setModuleFilter("active")}
-              >
-                Active ({modules.filter(m => m.status === "Partially Implemented" || m.status === "Implemented and Verified").length})
-              </button>
-              <button
-                className={`btn-filter ${moduleFilter === "planned" ? "active" : ""}`}
-                onClick={() => setModuleFilter("planned")}
-              >
-                Upcoming ({modules.filter(m => m.status === "Planned").length})
-              </button>
-            </div>
-          </div>
+        {/* SECTION 2: Conversational Project Intelligence Assistant */}
+        {(dashboardTab === "all" || dashboardTab === "chat") && (
+          <section className="section-wrapper">
+            <ConversationalAssistantView workspaceVersion={workspaceVersion} />
+          </section>
+        )}
 
-          {/* Module Cards Grid */}
-          {loadingModules ? (
-            <div className="loading-grid">
-              <p>Loading module statuses from FastAPI...</p>
-            </div>
-          ) : filteredModules.length > 0 ? (
-            <div className="modules-grid">
-              {filteredModules.map((module) => (
-                <ModuleCard key={module.id} module={module} />
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <Layers size={36} />
-              <p>No modules match the selected filter or backend is offline.</p>
-            </div>
-          )}
-        </section>
+        {/* SECTION 3: Project Health Scoring */}
+        {(dashboardTab === "all" || dashboardTab === "health") && (
+          <section className="section-wrapper">
+            <ProjectHealthView workspaceVersion={workspaceVersion} />
+          </section>
+        )}
+
+        {/* SECTION 4: Documentation Generation Studio */}
+        {(dashboardTab === "all" || dashboardTab === "docgen") && (
+          <section className="section-wrapper">
+            <DocumentationGenerationView workspaceVersion={workspaceVersion} />
+          </section>
+        )}
+
+        {/* SECTION 5: Autonomous Multi-Agent Analysis View (Scope, Risks, Blockers) */}
+        {(dashboardTab === "all" || dashboardTab === "agents") && (
+          <section className="section-wrapper" id="ai-advisor">
+            <AgentAnalysisView workspaceVersion={workspaceVersion} />
+          </section>
+        )}
       </main>
 
       {/* Footer */}
       <footer className="footer-container">
         <div className="footer-content">
-          <p>© 2026 AI Project Intelligence & Risk Advisor</p>
+          <p>© 2026 AI Project Intelligence & Risk Advisor — Milestone 4 Final Release</p>
           <p className="footer-subtext">
-            Evidence-Grounded Autonomous Project Intelligence & Risk Forecasting
+            Autonomous Multi-Agent Documentation Generation, Deterministic Health Scoring, Conversational Assistant, and Executive Intelligence Dashboard
           </p>
         </div>
       </footer>

@@ -229,6 +229,51 @@ Return a valid JSON object matching this schema:
                 if "evaluator reference" in lower_l or "suggested questions" in lower_l:
                     continue
 
+                # Inline Risk pattern: e.g. RISK-01 – If identity provider test credentials... Probability: Medium. Impact: High. Owner: Rohan Das. Mitigation: ...
+                m_inline_risk = re.search(
+                    r"([A-Z0-9_\-]*(?:RISK|R)-\d+)\s*[-–—:]\s*(.+?)\.\s*Probability:\s*([A-Za-z]+)\.\s*Impact:\s*([A-Za-z]+)\.\s*Owner:\s*([^.]+?)\.\s*Mitigation:\s*([^.\n]+)",
+                    clean_line,
+                    re.IGNORECASE,
+                )
+                if m_inline_risk:
+                    r_id = m_inline_risk.group(1).upper()
+                    if r_id not in seen_risk_ids:
+                        seen_risk_ids.add(r_id)
+                        r_title = m_inline_risk.group(2).strip()
+                        r_lik = m_inline_risk.group(3).strip()
+                        r_imp = m_inline_risk.group(4).strip()
+                        r_owner = m_inline_risk.group(5).strip()
+                        r_mit = m_inline_risk.group(6).strip()
+                        calc_sev = calculate_severity(r_imp, r_lik)
+                        rec_text = generate_ai_recommendation(r_title, r_mit)
+
+                        # Determine category
+                        r_cat = "Schedule" if any(w in r_title.lower() for w in ("delay", "schedule", "late", "slip")) else "Technical"
+                        if any(w in r_title.lower() for w in ("credential", "access", "auth", "spreadsheet", "approval")):
+                            r_cat = "Dependency"
+
+                        risks.append(
+                            RiskItem(
+                                risk_id=r_id,
+                                risk_title=r_title,
+                                description=f"Documented project risk {r_id}: {r_title}",
+                                risk_category=r_cat,
+                                severity=calc_sev,
+                                likelihood=r_lik,
+                                impact=r_imp,
+                                owner=r_owner,
+                                source_severity=r_imp,
+                                calculated_severity=calc_sev,
+                                affected_milestone=None,
+                                supporting_evidence=clean_line,
+                                source_references=[citation_label],
+                                recommended_mitigation=rec_text,
+                                confidence="High",
+                                data_gaps=None,
+                            )
+                        )
+                    continue
+
                 parts = [p.strip() for p in clean_line.split("|") if p.strip()]
                 fields: Dict[str, str] = {}
                 for p in parts:
@@ -237,7 +282,7 @@ Return a valid JSON object matching this schema:
                         fields[kv[0].strip().lower()] = kv[1].strip()
 
                 p0 = parts[0] if parts else ""
-                is_r_id = bool(re.match(r"^R-\d+$", p0, re.IGNORECASE))
+                is_r_id = bool(re.match(r"^(?:R|RISK)-\d+$", p0, re.IGNORECASE))
                 is_risk_line = is_r_id or "risk description" in fields or "risk" in fields
 
                 if is_risk_line and not re.match(r"^(D|DEP|M|A|FR)-\d+$", p0, re.IGNORECASE):
@@ -302,6 +347,56 @@ Return a valid JSON object matching this schema:
                                 data_gaps="Detailed schedule impact in calendar days is not specified in the risk register.",
                             )
                         )
+
+        # Fallback for narrative risk registers (e.g. meeting minutes, architecture risks)
+        if not risks:
+            for chunk, _ in scored_chunks:
+                text = chunk.text
+                src_label = chunk.source_ref or f"Chunk {chunk.chunk_id}"
+                citation_label = f"{chunk.source} ({src_label})"
+                in_risk_sec = False
+                for line in text.splitlines():
+                    clean_l = line.strip()
+                    if not clean_l:
+                        continue
+                    if re.search(r"\b(?:risks|impediments|technical debt|risk assessment)\b", clean_l, re.I) and (clean_l.endswith(":") or len(clean_l.split()) <= 6):
+                        in_risk_sec = True
+                        continue
+                    if in_risk_sec and (re.search(r"\b(?:action items|pending decisions|milestones|requirements|next steps)\b", clean_l, re.I) and clean_l.endswith(":")):
+                        in_risk_sec = False
+                        continue
+
+                    if in_risk_sec:
+                        m_item = re.match(r"^(?:\d+[\.\)]|\-|\*)\s+([^:\n]{3,60}):\s*(.+)$", clean_l)
+                        if m_item:
+                            title = m_item.group(1).strip()
+                            desc = m_item.group(2).strip()
+                            r_id = f"R-{len(risks) + 1:02d}"
+                            if r_id not in seen_risk_ids:
+                                seen_risk_ids.add(r_id)
+                                sev = "High" if any(w in desc.lower() for w in ("high", "critical", "severe", "blocking")) else "Medium"
+                                cat = "Schedule" if "schedule" in desc.lower() or "delay" in desc.lower() else "Technical"
+                                rec_text = generate_ai_recommendation(title, "")
+                                risks.append(
+                                    RiskItem(
+                                        risk_id=r_id,
+                                        risk_title=title,
+                                        description=desc,
+                                        risk_category=cat,
+                                        severity=sev,
+                                        likelihood="Medium",
+                                        impact="High" if sev == "High" else "Medium",
+                                        owner="Unassigned",
+                                        source_severity=sev,
+                                        calculated_severity=sev,
+                                        affected_milestone=None,
+                                        supporting_evidence=clean_l,
+                                        source_references=[citation_label],
+                                        recommended_mitigation=rec_text,
+                                        confidence="High",
+                                        data_gaps=None,
+                                    )
+                                )
 
         # Fallback for schedules and task logs (e.g. CSV tasks with Blocked or Overdue status)
         if not risks:
