@@ -68,6 +68,7 @@ faiss_index/
 model_cache/
 
 # Duplicate and intermediate documentation
+/all_docs/
 /Documents - Copy/
 /milestone1_deliverables/
 /milestone2_deliverables/
